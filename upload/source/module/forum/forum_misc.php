@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: forum_misc.php 33219 2013-05-07 08:56:48Z jeffjzhang $
+ *      $Id: forum_misc.php 33825 2013-08-19 08:32:40Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -243,8 +243,7 @@ if($_GET['action'] == 'paysucceed') {
 		showmessage('postcomment_error');
 	}
 	$extra = !empty($_GET['extra']) ? rawurlencode($_GET['extra']) : '';
-	$seccodecheck = ($_G['setting']['seccodestatus'] & 4) && (!$_G['setting']['seccodedata']['minposts'] || getuserprofile('posts') < $_G['setting']['seccodedata']['minposts']);
-	$secqaacheck = $_G['setting']['secqaa']['status'] & 2 && (!$_G['setting']['secqaa']['minposts'] || getuserprofile('posts') < $_G['setting']['secqaa']['minposts']);
+	list($seccodecheck, $secqaacheck) = seccheck('post', 'reply');
 
 	include template('forum/comment');
 
@@ -298,6 +297,7 @@ if($_GET['action'] == 'paysucceed') {
 		C::t('forum_post')->update('tid:'.$_G['tid'], $_GET['pid'], array(
 			'message' => $message,
 			'bbcodeoff' => $bbcodeoff,
+			'port' => $_G['remoteport']
 		));
 		showmessage('postappend_add_succeed', "forum.php?mod=viewthread&tid=$post[tid]&pid=$post[pid]&page=$_GET[page]&extra=$_GET[extra]#pid$post[pid]", array('tid' => $post['tid'], 'pid' => $post['pid']));
 	} else {
@@ -362,19 +362,37 @@ if($_GET['action'] == 'paysucceed') {
 	include_once libfile('class/member');
 	if($_G['setting']['darkroom']) {
 		$limit = $_G['tpp'];
-		$page = $_GET['page'] ? $_GET['page'] : 1;
-		$start = $limit * ($page -1);
-		$count = C::t('common_member')->count_by_groupid(array(4, 5));
-		$users = C::t('common_member')->fetch_all_by_groupid(array(4, 5), $start, $limit);
-		foreach(C::t('common_member_crime')->fetch_all_by_uid_action(array_keys($users), array(4, 5)) as $crime) {
+		$cid = $_GET['cid'] ? dintval($_GET['cid']) : 0;
+		$crimelist = array();
+		$i = 0;
+		foreach(C::t('common_member_crime')->fetch_all_by_cid($cid, array(4, 5), $limit) as $crime) {
+			$i++;
+			$cid = $crime['cid'];
+			if(isset($crimelist[$crime['uid']])) {
+				continue;
+			}
 			$crime['action'] = lang('forum/template', crime_action_ctl::$actions[$crime['action']]);
-			$crime['groupexpiry'] = $users[$crime['uid']]['groupexpiry'] ? dgmdate($users[$crime['uid']]['groupexpiry'], 'u') : lang('forum/misc', 'never_expired');
-			$crimes[$crime['uid']] = $crime;
+			$crime['dateline'] = dgmdate($crime['dateline'], 'u');
+			$crimelist[$crime['uid']] = $crime;
 		}
-		if($count > $limit) {
-			$multi = multi($count, $limit, $page, 'forum.php?mod=misc&action=showdarkroom');
+		if($crimelist && $i == $limit) {
+			$dataexist = 1;
+		} else {
+			$dataexist = 0;
 		}
-		include_once template("forum/darkroom");
+		foreach(C::t('common_member')->fetch_all(array_keys($crimelist)) as $uid => $user) {
+			if($user['groupid'] == 4 || $user['groupid'] == 5) {
+				$crimelist[$uid]['username'] = $user['username'];
+				$crimelist[$uid]['groupexpiry'] = $user['groupexpiry'] ? dgmdate($user['groupexpiry'], 'u') : lang('forum/misc', 'never_expired');
+			} else {
+				unset($crimelist[$uid]);
+			}
+		}
+		if($_GET['ajaxdata'] === 'json') {
+			showmessage(array('dataexist' => $dataexist, 'cid' => $cid), '', $crimelist);
+		} else {
+			include_once template("forum/darkroom");
+		}
 		exit;
 	}
 	showmessage('undefined_action');
@@ -1184,6 +1202,9 @@ if($_GET['action'] == 'votepoll' && submitcheck('pollsubmit', 1)) {
 					loadcache('profilesetting');
 					$data = '';
 					foreach($activity['ufield']['userfield'] as $fieldid) {
+						if($fieldid == 'qq') {
+							$fieldid = 'qqnumber';
+						}
 						$data = profile_show($fieldid, $activityapplies['ufielddata']['userfield']);
 						$ufielddata .= '<li>'.$_G['cache']['profilesetting'][$fieldid]['title'].'&nbsp;&nbsp;:&nbsp;&nbsp;';
 						if(empty($data)) {
@@ -1331,6 +1352,9 @@ if($_GET['action'] == 'votepoll' && submitcheck('pollsubmit', 1)) {
 				require_once libfile('function/profile');
 				loadcache('profilesetting');
 				foreach($activity['ufield']['userfield'] as $fieldid) {
+					if($fieldid == 'qq') {
+						$fieldid = 'qqnumber';
+					}
 					$data = profile_show($fieldid, $apply['ufielddata']['userfield']);
 					if(strlen($data) > 11 && is_numeric($data)) {
 						$data = '['.$data.']';
@@ -1748,6 +1772,45 @@ if($_GET['action'] == 'votepoll' && submitcheck('pollsubmit', 1)) {
 	$hotreply[$_GET['do']]++;
 
 	showmessage('thread_poll_succeed', '', array(), array('msgtype' => 3, 'extrajs' => '<script type="text/javascript">postreviewupdate('.$post['pid'].', '.$typeid.');</script>'));
+} elseif($_GET['action'] == 'hidden') {
+	if($_GET['formhash'] != FORMHASH) {
+		showmessage('undefined_action', NULL);
+	}
+	if(!$_G['uid']) {
+		showmessage('group_nopermission', NULL, array('grouptitle' => $_G['group']['grouptitle']), array('login' => 1));
+	}
+	if(in_array($thread['fid'], $_G['setting']['security_forums_white_list']) || $thread['displayorder'] > 0 || $thread['highlight'] || $thread['digest'] || $thread['stamp'] > -1) {
+		showmessage('thread_hidden_error', NULL);
+	}
+	$member = C::t('common_member')->fetch($thread['authorid']);
+	if(in_array($member['groupid'], $_G['setting']['security_usergroups_white_list'])) {
+		showmessage('thread_hidden_error', NULL);
+	}
+	if(C::t('forum_forumrecommend')->fetch($thread['tid'])) {
+		showmessage('thread_hidden_error', NULL);
+	}
+	C::t('forum_threadhidelog')->insert($_GET['tid'], $_G['uid']);
+	if($thread['hidden'] + 1 == $_G['setting']['threadhidethreshold']) {
+		notification_add($thread['authorid'], 'post', 'thread_hidden', array('tid' => $thread['tid'], 'subject' => $thread['subject']), 1);
+	}
+	$thide = explode('|', $_G['cookie']['thide']);
+	$thide = array_slice($thide, -20);
+	if(!in_array($_GET['tid'], $thide)) {
+		$thide[] = $_GET['tid'];
+	}
+	dsetcookie('thide', implode('|', $thide), 2592000);
+	showmessage('thread_hidden_success', dreferer(), array(), array('showdialog' => true, 'closetime' => true, 'extrajs' => '<script type="text/javascript" reload="1">$(\'normalthread_'.$_GET['tid'].'\').style.display = \'none\'</script>'));
+} elseif($_GET['action'] == 'hiderecover') {
+	if($_GET['formhash'] != FORMHASH) {
+		showmessage('undefined_action', NULL);
+	}
+	$seccodecheck = true;
+	if(submitcheck('hiderecoversubmit')) {
+		C::t('forum_threadhidelog')->delete_by_tid($_GET['tid']);
+		showmessage('thread_hiderecover_success', dreferer());
+	} else {
+		include template('forum/hiderecover');
+	}
 }
 
 function getratelist($raterange) {

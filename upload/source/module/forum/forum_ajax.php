@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: forum_ajax.php 33116 2013-04-26 06:47:25Z nemohou $
+ *      $Id: forum_ajax.php 34303 2014-01-15 04:32:19Z hypowang $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -319,9 +319,9 @@ if($_GET['action'] == 'checkusername') {
 			}
 			$target = $thread['isgroup'] == 1 || $thread['forumstick'] ? ' target="_blank"' : ' onclick="atarget(this)"';
 			if(in_array('forum_viewthread', $_G['setting']['rewritestatus'])) {
-				$thread['threadurl'] = '<a href="'.rewriteoutput('forum_viewthread', 1, '', $thread['tid'], 1, '', '').'"'.$thread['highlight'].$target.'class="s xst z">'.$thread['subject'].'</a>';
+				$thread['threadurl'] = '<a href="'.rewriteoutput('forum_viewthread', 1, '', $thread['tid'], 1, '', '').'"'.$thread['highlight'].$target.'class="s xst">'.$thread['subject'].'</a>';
 			} else {
-				$thread['threadurl'] = '<a href="forum.php?mod=viewthread&amp;tid='.$thread['tid'].'"'.$thread['highlight'].$target.'class="s xst z">'.$thread['subject'].'</a>';
+				$thread['threadurl'] = '<a href="forum.php?mod=viewthread&amp;tid='.$thread['tid'].'"'.$thread['highlight'].$target.'class="s xst">'.$thread['subject'].'</a>';
 			}
 			if(in_array($thread['displayorder'], array(1, 2, 3, 4))) {
 				$thread['id'] = 'stickthread_'.$thread['tid'];
@@ -458,9 +458,8 @@ if($_GET['action'] == 'checkusername') {
 			require_once libfile('function/post');
 		}
 		$_GET['message'] = str_replace($imagereplace['oldimageurl'], $imagereplace['newimageurl'], $_GET['message']);
-		$_GET['message'] = addcslashes($_GET['message'], '/"');
-
 	}
+	$_GET['message'] = addcslashes($_GET['message'], '/"\'');
 	print <<<EOF
 		<script type="text/javascript">
 			parent.ATTACHORIMAGE = 1;
@@ -512,6 +511,7 @@ EOF;
 	if($_G['cookie']['visitedfid']) {
 		loadcache('forums');
 		foreach(explode('D', $_G['cookie']['visitedfid']) as $fid) {
+			$fid = intval($fid);
 			$visitedforums[$fid] = $_G['cache']['forums'][$fid]['name'];
 		}
 	}
@@ -537,8 +537,7 @@ EOF;
 			krsort($list);
 		}
 	}
-	$seccodecheck = ($_G['setting']['seccodestatus'] & 4) && (!$_G['setting']['seccodedata']['minposts'] || getuserprofile('posts') < $_G['setting']['seccodedata']['minposts']);
-	$secqaacheck = $_G['setting']['secqaa']['status'] & 2 && (!$_G['setting']['secqaa']['minposts'] || getuserprofile('posts') < $_G['setting']['secqaa']['minposts']);
+	list($seccodecheck, $secqaacheck) = seccheck('post', 'reply');
 	include template('forum/ajax_quickreply');
 } elseif($_GET['action'] == 'getpost') {
 	$tid = intval($_GET['tid']);
@@ -674,6 +673,16 @@ EOF;
 		}
 		showmessage('do_success', dreferer(), array(), array('header'=>true));
 	}
+	exit;
+} elseif($_GET['action'] == 'checkpostrule') {
+	require_once libfile('function/post');
+	include template('common/header_ajax');
+	$_POST = array('action' => $_GET['ac']);
+	list($seccodecheck, $secqaacheck) = seccheck('post', $_GET['ac']);
+	if($seccodecheck || $secqaacheck) {
+		include template('forum/seccheck_post');
+	}
+	include template('common/footer_ajax');
 	exit;
 }
 

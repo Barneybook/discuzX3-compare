@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: update.php 33157 2013-04-28 07:55:55Z theoliu $
+ *      $Id: update.php 33990 2013-09-13 10:20:02Z nemohou $
  */
 
 include_once('../source/class/class_core.php');
@@ -228,7 +228,7 @@ if($_GET['step'] == 'start') {
 } elseif ($_GET['step'] == 'sql') {
 
 	$sql = implode('', file($sqlfile));
-	preg_match_all("/CREATE\s+TABLE.+?pre\_(.+?)\s*\((.+?)\)\s*(ENGINE|TYPE)\s*\=/is", $sql, $matches);
+	preg_match_all("/CREATE\s+TABLE.+?pre\_(.+?)\s*\((.+?)\)\s*(ENGINE|TYPE)\s*=\s*(\w+)/is", $sql, $matches);
 	$newtables = empty($matches[1])?array():$matches[1];
 	$newsqls = empty($matches[0])?array():$matches[0];
 	if(empty($newtables) || empty($newsqls)) {
@@ -251,12 +251,13 @@ if($_GET['step'] == 'start') {
 	$newcols = getcolumn($newsqls[$i]);
 
 	if(!$query = DB::query("SHOW CREATE TABLE ".DB::table($newtable), 'SILENT')) {
-		preg_match("/(CREATE TABLE .+?)\s*(ENGINE|TYPE)\s*\=/is", $newsqls[$i], $maths);
+		preg_match("/(CREATE TABLE .+?)\s*(ENGINE|TYPE)\s*=\s*(\w+)/is", $newsqls[$i], $maths);
 
-		if(in_array($newtable, array('common_session', 'forum_threaddisablepos', 'common_process'))) {
-			$type = mysql_get_server_info() > '4.1' ? " ENGINE=MEMORY".(empty($config['dbcharset'])?'':" DEFAULT CHARSET=$config[dbcharset]" ): " TYPE=HEAP";
+		$maths[3] = strtoupper($maths[3]);
+		if($maths[3] == 'MEMORY' || $maths[3] == 'HEAP') {
+			$type = helper_dbtool::dbversion() > '4.1' ? " ENGINE=MEMORY".(empty($config['dbcharset'])?'':" DEFAULT CHARSET=$config[dbcharset]" ): " TYPE=HEAP";
 		} else {
-			$type = mysql_get_server_info() > '4.1' ? " ENGINE=MYISAM".(empty($config['dbcharset'])?'':" DEFAULT CHARSET=$config[dbcharset]" ): " TYPE=MYISAM";
+			$type = helper_dbtool::dbversion() > '4.1' ? " ENGINE=MYISAM".(empty($config['dbcharset'])?'':" DEFAULT CHARSET=$config[dbcharset]" ): " TYPE=MYISAM";
 		}
 		$usql = $maths[1].$type;
 
@@ -452,6 +453,18 @@ if($_GET['step'] == 'start') {
 		}
 		if(!isset($settings['allowpostcomment'])) {
 			$newsettings['allowpostcomment'] = array('1');
+		}
+
+		if(!isset($settings['styleid1'])) {
+			$newsettings['styleid1'] = 1;
+		}
+
+		if(!isset($settings['styleid2'])) {
+			$newsettings['styleid2'] = 1;
+		}
+
+		if(!isset($settings['styleid3'])) {
+			$newsettings['styleid3'] = 1;
 		}
 
 		if($settings['heatthread']) {
@@ -733,11 +746,21 @@ if($_GET['step'] == 'start') {
 		if(!$forum_typevar_search = C::t('forum_typevar')->count_by_search(2)) {
 			C::t('forum_typevar')->update_by_search(1, array('search' => 3));
 		}
-		if(($seccodecheck = $settings['seccodecheck'])) {
+		if(($seccodecheck = $settings['seccodestatus'])) {
 			if(!($seccodecheck & 16)) {
 				$seccodecheck = setstatus(5, 1, $seccodecheck);
 				$newsettings['seccodestatus'] = $seccodecheck;
 			}
+		}
+		$seccodedata = dunserialize($setting['seccodedata']);
+		if(!$seccodedata['rule']) {
+			$seccodestatuss = sprintf('%05b', $seccodecheck);
+			$seccodedata['rule']['register']['allow'] = $seccodestatuss{4};
+			$seccodedata['rule']['login']['allow'] = $seccodestatuss{3};
+			$seccodedata['rule']['post']['allow'] = $seccodestatuss{2};
+			$seccodedata['rule']['password']['allow'] = $seccodestatuss{1};
+			$seccodedata['rule']['card']['allow'] = $seccodestatuss{0};
+			$newsettings['seccodedata'] = serialize($seccodedata);
 		}
 		if(!isset($settings['collectionteamworkernum'])) {
 			$newsettings['collectionteamworkernum'] = '3';
@@ -1340,9 +1363,7 @@ if($_GET['step'] == 'start') {
 
 	} elseif($_GET['op'] == 'pm') {
 		$nextop = 'allowgetimage';
-		if($first_to_3_0) {
 			DB::query("UPDATE ".DB::table('common_member')." SET newpm='0', newprompt='0'");
-		}
 		show_msg("新短消息狀態重置完畢", "$theurl?step=data&op=$nextop");
 	} elseif($_GET['op'] == 'allowgetimage') {
 		$nextop = 'verify';
@@ -1886,7 +1907,7 @@ if($_GET['step'] == 'start') {
 
 
 	if($result == true) {
-		$opensoso = '<br><br>友情提示：<br>為更好的降低論壇搜索時的數據壓力，本次升級已經幫本站開通縱橫搜索服務。<br>你可以在 <a href=\\\'../admin.php?frames=yes&action=cloud&operation=search\\\' target=\\\'_blank\\\'>站點後台-&gt;雲平台-&gt;縱橫搜索 進行管理</a>。';
+		$opensoso = '<br><br>友情提示：<br>為更好的降低論壇搜索時的數據壓力，本次升級已經幫本站開通縱橫搜索服務。<br>你可以在 <a href=\\\'../admin.php?frames=yes&action=cloud&operation=search\\\' target=\\\'_blank\\\'>站點後台-&gt;應用-&gt;縱橫搜索 進行管理</a>。';
 	}
 	if(!$devmode && @$fp = fopen($lockfile, 'w')) {
 		fwrite($fp, ' ');
@@ -1928,7 +1949,7 @@ function get_special_tables_array($tablename) {
 	$query = DB::query("SHOW TABLES LIKE '{$tablename}\_%'");
 	$dbo = DB::object();
 	$tables_array = array();
-	while($row = $dbo->fetch_array($query, MYSQL_NUM)) {
+	while($row = $dbo->fetch_array($query, $dbo->drivertype == 'mysqli' ? MYSQLI_NUM : MYSQL_NUM)) {
 		if(preg_match("/^{$tablename}_(\\d+)$/i", $row[0])) {
 			$prefix_len = strlen($dbo->tablepre);
 			$row[0] = substr($row[0], $prefix_len);
@@ -2083,7 +2104,7 @@ function runquery($sql) {
 
 			if(substr($query, 0, 12) == 'CREATE TABLE') {
 				$name = preg_replace("/CREATE TABLE ([a-z0-9_]+) .*/is", "\\1", $query);
-				DB::query(createtable($query, $dbcharset));
+				DB::query(create_table($query, $dbcharset));
 
 			} else {
 				DB::query($query);
@@ -2270,6 +2291,13 @@ function block_style_conver_to_thread($style, $blockclass) {
 	$arr['template'] = dunserialize($arr['template']);
 	$arr = serialize($arr);
 	return $arr;
+}
+
+function create_table($sql, $dbcharset) {
+	$type = strtoupper(preg_replace("/^\s*CREATE TABLE\s+.+\s+\(.+?\).*(ENGINE|TYPE)\s*=\s*([a-z]+?).*$/isU", "\\2", $sql));
+	$type = in_array($type, array('MYISAM', 'HEAP', 'MEMORY')) ? $type : 'MYISAM';
+	return preg_replace("/^\s*(CREATE TABLE\s+.+\s+\(.+?\)).*$/isU", "\\1", $sql).
+	(helper_dbtool::dbversion() > '4.1' ? " ENGINE=$type DEFAULT CHARSET=".$dbcharset : " TYPE=$type");
 }
 
 ?>

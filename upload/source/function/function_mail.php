@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: function_mail.php 33248 2013-05-09 04:11:09Z kamichen $
+ *      $Id: function_mail.php 33961 2013-09-06 07:39:33Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -31,7 +31,7 @@ function sendmail($toemail, $subject, $message, $from = '') {
 			$_G['setting']['mail']['auth_password'] = $smtp['auth_password'];
 		}
 	}
-	$message = preg_replace("/href\=\"(?!(http|https)\:\/\/)(.+?)\"/i", 'href="'.$_G['siteurl'].'\\1"', $message);
+	$message = preg_replace("/href\=\"(?!(http|https)\:\/\/)(.+?)\"/i", 'href="'.$_G['siteurl'].'\\2"', $message);
 
 $message = <<<EOT
 <html>

@@ -4,7 +4,7 @@
  *		[Discuz! X] (C)2001-2099 Comsenz Inc.
  *		This is NOT a freeware, use is subject to license terms
  *
- *		$Id: security.class.php 30569 2012-06-04 08:31:10Z songlixin $
+ *		$Id: security.class.php 33945 2013-09-05 01:48:02Z nemohou $
  */
 
 
@@ -57,15 +57,26 @@ class plugin_security {
 			return false;
 		}
 
+		$ajaxReportScript = '';
 		$formhash = formhash();
-		if ($_G['adminid']) {
+		if($_G['member']['allowadmincp'] == 1) {
 			$processName = 'securityOperate';
 			if (self::$isAdminGroup && !discuz_process::islocked($processName, 30)) {
-				$ajaxReportScript = <<<EOF
+				$ajaxReportScript .= <<<EOF
 					<script type='text/javascript'>
 					var url = SITEURL + '/plugin.php?id=security:sitemaster';
 					var x = new Ajax();
 					x.post(url, 'formhash=$formhash', function(s){});
+					</script>
+EOF;
+			}
+			$processName = 'securityNotice';
+			if (self::$isAdminGroup && !discuz_process::islocked($processName, 30)) {
+				$ajaxReportScript .= <<<EOF
+					<div class="focus plugin" id="evil_notice"></div>
+					<script type='text/javascript'>
+					var url = SITEURL + '/plugin.php?id=security:evilnotice&formhash=$formhash';
+					ajaxget(url, 'evil_notice', '');
 					</script>
 EOF;
 			}
@@ -358,6 +369,8 @@ class plugin_security_home extends plugin_security_forum {
 class plugin_security_member extends plugin_security {
 
 	public function logging_report_message($param) {
+		global $_G;
+
 		if (self::$securityStatus != TRUE) {
 			return false;
 		}

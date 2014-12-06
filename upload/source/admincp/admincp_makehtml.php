@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: admincp_makehtml.php 33048 2013-04-12 08:50:27Z zhangjie $
+ *      $Id: admincp_makehtml.php 34354 2014-03-19 08:32:46Z hypowang $
  */
 
 if(!defined('IN_DISCUZ') || !defined('IN_DISCUZ')) {
@@ -437,15 +437,7 @@ EOT;
 		$settingnew = $_GET['settingnew'];
 		if(isset($settingnew['makehtml'])) {
 			$settingnew['makehtml']['flag'] = intval($settingnew['makehtml']['flag']);
-			if(!$settingnew['makehtml']['extendname']) {
-				$settingnew['makehtml']['extendname'] = 'html';
-			} else {
-				$re = NULL;
-				preg_match_all('/[^\w\d\_\.]/',$settingnew['makehtml']['extendname'],$re);
-				if(!empty($re[0]) || strpos('..', $settingnew['makehtml']['extendname']) !== false) {
-					cpmsg(cplang('setting_functions_makehtml_extendname_invalid').','.cplang('return'), NULL, 'error');
-				}
-			}
+			$settingnew['makehtml']['extendname'] = !$settingnew['makehtml']['extendname'] || !in_array($settingnew['makehtml']['extendname'], array('htm', 'html')) ? 'html' : $settingnew['makehtml']['extendname'];
 			if(!$settingnew['makehtml']['indexname']) {
 				$settingnew['makehtml']['indexname'] = 'index';
 			} else {
@@ -455,17 +447,33 @@ EOT;
 					cpmsg(cplang('setting_functions_makehtml_indexname_invalid').','.cplang('return'), NULL, 'error');
 				}
 			}
-			$settingnew['makehtml']['articlehtmldir'] = trim($settingnew['makehtml']['articlehtmldir'], ' /');
+			$settingnew['makehtml']['articlehtmldir'] = trim($settingnew['makehtml']['articlehtmldir'], ' /\\');
 			$re = NULL;
 			preg_match_all('/[^\w\d\_\\]/',$settingnew['makehtml']['articlehtmldir'],$re);
 			if(!empty($re[0])) {
 				cpmsg(cplang('setting_functions_makehtml_articlehtmldir_invalid').','.cplang('return'), NULL, 'error');
 			}
-			$settingnew['makehtml']['topichtmldir'] = trim($settingnew['makehtml']['topichtmldir'], ' /');
+			$settingnew['makehtml']['topichtmldir'] = trim($settingnew['makehtml']['topichtmldir'], ' /\\');
 			$re = NULL;
 			preg_match_all('/[^\w\d\_\\]/',$settingnew['makehtml']['topichtmldir'],$re);
 			if(!empty($re[0])) {
 				cpmsg(cplang('setting_functions_makehtml_topichtmldir_invalid').','.cplang('return'), NULL, 'error');
+			}
+			$topichtmldir = realpath($settingnew['makehtml']['topichtmldir']);
+			if($topichtmldir === false) {
+				dmkdir($settingnew['makehtml']['topichtmldir'], 777, false);
+				$topichtmldir = realpath($settingnew['makehtml']['topichtmldir']);
+				rmdir($settingnew['makehtml']['topichtmldir']);
+				if($topichtmldir === false) {
+					cpmsg(cplang('setting_functions_makehtml_topichtmldir_invalid').','.cplang('return'), NULL, 'error');
+				}
+			}
+			$topichtmldir = str_replace(DISCUZ_ROOT, '', $topichtmldir);
+			$sysdir = array('api', 'archiver', 'config', 'data/diy', 'data\diy', 'install', 'source', 'static', 'template', 'uc_client', 'uc_server');
+			foreach($sysdir as $_dir) {
+				if(stripos($topichtmldir, $_dir) === 0) {
+					cpmsg(cplang('setting_functions_makehtml_topichtmldir_invalid').','.cplang('return'), NULL, 'error');
+				}
 			}
 			$settingnew['makehtml']['htmldirformat'] = intval($settingnew['makehtml']['htmldirformat']);
 			C::t('common_setting')->update('makehtml', $settingnew['makehtml']);

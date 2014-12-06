@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: function_post.php 33265 2013-05-13 01:16:20Z kamichen $
+ *      $Id: function_post.php 33291 2013-05-22 05:59:13Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -166,7 +166,7 @@ function updateattach($modnewthreads, $tid, $pid, $attachnew, $attachupdate = ar
 				$newattachfile[$attach['aid']] = $attach['attachment'];
 			}
 		}
-		if($_G['setting']['watermarkstatus'] && empty($_G['forum']['disablewatermark'])) {
+		if($_G['setting']['watermarkstatus'] && empty($_G['forum']['disablewatermark']) || !$_G['setting']['thumbdisabledmobile']) {
 			require_once libfile('class/image');
 			$image = new image;
 		}
@@ -557,6 +557,8 @@ function messagesafeclear($message) {
 	if(strpos($message, '[/groupid]') !== FALSE) {
 		$message = preg_replace("/\[groupid=\d+\].*\[\/groupid\]/i", '', $message);
 	}
+	$language = lang('forum/misc');
+	$message = preg_replace(array($language['post_edithtml_regexp'],$language['post_editnobbcode_regexp'],$language['post_edit_regexp']), '', $message);
 	return $message;
 }
 

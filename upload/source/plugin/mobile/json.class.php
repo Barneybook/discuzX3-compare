@@ -1,4 +1,7 @@
 <?php
+if(!defined('IN_MOBILE_API') && !defined('IN_DISCUZ')) {
+	exit('Access Denied');
+}
 
 class CJSON {
 	const JSON_SLICE = 1;

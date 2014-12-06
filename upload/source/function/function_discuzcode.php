@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: function_discuzcode.php 33255 2013-05-10 01:52:32Z andyzheng $
+ *      $Id: function_discuzcode.php 34308 2014-01-20 09:45:13Z hypowang $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -233,7 +233,7 @@ function discuzcode($message, $smileyoff, $bbcodeoff, $htmlon = 0, $allowsmilies
 					$message = preg_replace("/\[hide\]\s*(.*?)\s*\[\/hide\]/is", tpl_hide_reply(), $message);
 				} else {
 					$message = preg_replace("/\[hide\](.*?)\[\/hide\]/is", tpl_hide_reply_hidden(), $message);
-					$message .= '<script type="text/javascript">replyreload += \',\' + '.$pid.';</script>';
+					$message = '<script type="text/javascript">replyreload += \',\' + '.$pid.';</script>'.$message;
 				}
 			}
 			if(strpos($msglower, '[hide=') !== FALSE) {
@@ -307,7 +307,7 @@ function parseurl($url, $text, $scheme) {
 function parseflash($w, $h, $url) {
 	$w = !$w ? 550 : $w;
 	$h = !$h ? 400 : $h;
-	preg_match("/((https?){1}:\/\/|www\.)[^\[\"']+(\.swf|\.flv)/i", $url, $matches);
+	preg_match("/((https?){1}:\/\/|www\.)[^\[\"'\?]+(\.swf|\.flv)(\?.+)?/i", $url, $matches);
 	$url = $matches[0];
 	$randomid = 'swf_'.random(3);
 	if(fileext($url) != 'flv') {
@@ -392,11 +392,15 @@ function parsetrtd($bgcolor, $colspan, $rowspan, $width) {
 }
 
 function parseaudio($url, $width = 400) {
-	$ext = strtolower(substr(strrchr($url, '.'), 1, 5));
+	$url = addslashes($url);
+        if(!in_array(strtolower(substr($url, 0, 6)), array('http:/', 'https:', 'ftp://', 'rtsp:/', 'mms://')) && !preg_match('/^static\//', $url) && !preg_match('/^data\//', $url)) {
+		return dhtmlspecialchars($url);
+	}
+	$ext = fileext($url);
 	switch($ext) {
 		case 'mp3':
 			$randomid = 'mp3_'.random(3);
-			return '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'FlashVars\', \'soundFile='.urlencode($url).'\', \'width\', \'290\', \'height\', \'24\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', \''.STATICURL.'image/common/player.swf\', \'quality\', \'high\', \'bgcolor\', \'#FFFFFF\', \'menu\', \'false\', \'wmode\', \'transparent\', \'allowscriptaccess\', \'none\', \'allowNetworking\', \'internal\');</script>';
+			return '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'FlashVars\', \'soundFile='.urlencode($url).'\', \'width\', \'290\', \'height\', \'24\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', \''.STATICURL.'image/common/player.swf\', \'quality\', \'high\', \'bgcolor\', \'#FFFFFF\', \'menu\', \'false\', \'wmode\', \'transparent\', \'allowNetworking\', \'internal\');</script>';
 		case 'wma':
 		case 'mid':
 		case 'wav':
@@ -413,13 +417,18 @@ function parsemedia($params, $url) {
 	$params = explode(',', $params);
 	$width = intval($params[1]) > 800 ? 800 : intval($params[1]);
 	$height = intval($params[2]) > 600 ? 600 : intval($params[2]);
+
 	$url = addslashes($url);
+        if(!in_array(strtolower(substr($url, 0, 6)), array('http:/', 'https:', 'ftp://', 'rtsp:/', 'mms://')) && !preg_match('/^static\//', $url) && !preg_match('/^data\//', $url)) {
+		return dhtmlspecialchars($url);
+	}
+
 	if($flv = parseflv($url, $width, $height)) {
 		return $flv;
 	}
 	if(in_array(count($params), array(3, 4))) {
 		$type = $params[0];
-		$url = str_replace(array('<', '>'), '', str_replace('\\"', '\"', $url));
+		$url = htmlspecialchars(str_replace(array('<', '>'), '', str_replace('\\"', '\"', $url)));
 		switch($type) {
 			case 'mp3':
 			case 'wma':
@@ -486,14 +495,14 @@ function highlightword($text, $words, $prepend) {
 
 function parseflv($url, $width = 0, $height = 0) {
 	$lowerurl = strtolower($url);
-	$flv = '';
-	$imgurl = '';
+	$flv = $iframe = $imgurl = '';
 	if($lowerurl != str_replace(array('player.youku.com/player.php/sid/','tudou.com/v/','player.ku6.com/refer/'), '', $lowerurl)) {
 		$flv = $url;
 	} elseif(strpos($lowerurl, 'v.youku.com/v_show/') !== FALSE) {
 		$ctx = stream_context_create(array('http' => array('timeout' => 10)));
 		if(preg_match("/http:\/\/v.youku.com\/v_show\/id_([^\/]+)(.html|)/i", $url, $matches)) {
 			$flv = 'http://player.youku.com/player.php/sid/'.$matches[1].'/v.swf';
+			$iframe = 'http://player.youku.com/embed/'.$matches[1];
 			if(!$width && !$height) {
 				$api = 'http://v.youku.com/player/getPlayList/VideoIDS/'.$matches[1];
 				$str = stripslashes(file_get_contents($api, false, $ctx));
@@ -507,6 +516,7 @@ function parseflv($url, $width = 0, $height = 0) {
 	} elseif(strpos($lowerurl, 'tudou.com/programs/view/') !== FALSE) {
 		if(preg_match("/http:\/\/(www.)?tudou.com\/programs\/view\/([^\/]+)/i", $url, $matches)) {
 			$flv = 'http://www.tudou.com/v/'.$matches[2];
+			$iframe = 'http://www.tudou.com/programs/view/html5embed.action?code='.$matches[2];
 			if(!$width && !$height) {
 				$str = file_get_contents($url, false, $ctx);
 				if(!empty($str) && preg_match("/<span class=\"s_pic\">(.+?)<\/span>/i", $str, $image)) {
@@ -539,6 +549,7 @@ function parseflv($url, $width = 0, $height = 0) {
 	} elseif(strpos($lowerurl, 'www.youtube.com/watch?') !== FALSE) {
 		if(preg_match("/http:\/\/www.youtube.com\/watch\?v=([^\/&]+)&?/i", $url, $matches)) {
 			$flv = 'http://www.youtube.com/v/'.$matches[1].'&hl=zh_CN&fs=1';
+			$iframe = 'http://www.youtube.com/embed/'.$matches[1];
 			if(!$width && !$height) {
 				$str = file_get_contents($url, false, $ctx);
 				if(!empty($str) && preg_match("/'VIDEO_HQ_THUMB':\s'(.+?)'/i", $str, $image)) {
@@ -643,8 +654,10 @@ function parseflv($url, $width = 0, $height = 0) {
 			$width = addslashes($width);
 			$height = addslashes($height);
 			$flv = addslashes($flv);
+			$iframe = addslashes($iframe);
 			$randomid = 'flv_'.random(3);
-			return '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', \''.$flv.'\', \'quality\', \'high\', \'bgcolor\', \'#ffffff\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\');</script>';
+			$enablemobile = $iframe ? 'mobileplayer() ? "<iframe height=\''.$height.'\' width=\''.$width.'\' src=\''.$iframe.'\' frameborder=0 allowfullscreen></iframe>" : ' : '';
+			return '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=('.$enablemobile.'AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', \''.$flv.'\', \'quality\', \'high\', \'bgcolor\', \'#ffffff\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\'));</script>';
 		}
 	} else {
 		return FALSE;
@@ -687,7 +700,7 @@ function parseimg($width, $height, $src, $lazyload, $pid, $extra = '') {
 
 	} else {
 		if(defined('IN_MOBILE')) {
-			$img = '<img'.($width > 0 ? 'width="'.$width.'"' : '').($height > 0 ? ' height="'.$height.'"' : '').' src="{url}" border="0" alt="" />';
+			$img = '<img'.($width > 0 ? ' width="'.$width.'"' : '').($height > 0 ? ' height="'.$height.'"' : '').' src="{url}" border="0" alt="" />';
 		} else {
 			$img = '<img id="aimg_'.$rimg_id.'" onclick="zoom(this, this.src, 0, 0, '.($_G['setting']['showexif'] ? 1 : 0).')" class="zoom"'.($width > 0 ? ' width="'.$width.'"' : '').($height > 0 ? ' height="'.$height.'"' : '').' '.$attrsrc.'="{url}" '.($extra ? $extra.' ' : '').'border="0" alt="" />';
 		}

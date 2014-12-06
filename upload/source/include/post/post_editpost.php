@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: post_editpost.php 32751 2013-03-06 03:39:49Z liulanbo $
+ *      $Id: post_editpost.php 34144 2013-10-21 05:56:02Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -353,7 +353,7 @@ if(!submitcheck('editsubmit')) {
 
 
 		$feed = array();
-		if($special == 127) {
+		if($isfirstpost && $special == 127) {
 			$message .= chr(0).chr(0).chr(0).$specialextra;
 		}
 
@@ -430,6 +430,9 @@ if(!submitcheck('editsubmit')) {
 		if($_G['group']['allowimgcontent']) {
 			$param['imgcontent'] = $_GET['imgcontent'];
 			$param['imgcontentwidth'] = $_G['setting']['imgcontentwidth'] ? intval($_G['setting']['imgcontentwidth']) : 100;
+		}
+		if($isfirstpost && $isorigauthor && $_G['group']['allowreplycredit']) {
+			$param['replycredit_rule'] = $replycredit_rule;
 		}
 
 		$modpost->editpost($param);

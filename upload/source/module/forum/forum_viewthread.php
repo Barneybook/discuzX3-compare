@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: forum_viewthread.php 33261 2013-05-10 03:36:04Z nemohou $
+ *      $Id: forum_viewthread.php 34125 2013-10-15 09:24:41Z jeffjzhang $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -23,6 +23,7 @@ if(!$_G['forum_thread'] || !$_G['forum']) {
 }
 
 $page = max(1, $_G['page']);
+$_GET['stand'] = isset($_GET['stand']) && in_array($_GET['stand'], array('0', '1', '2')) ? $_GET['stand'] : null;
 
 if($page === 1 && !empty($_G['setting']['antitheft']['allow']) && empty($_G['setting']['antitheft']['disable']['thread']) && empty($_G['forum']['noantitheft'])) {
 	helper_antitheft::check($_G['forum_thread']['tid'], 'tid');
@@ -49,6 +50,10 @@ $_G['action']['tid'] = $_G['tid'];
 if($_G['fid'] == $_G['setting']['followforumid'] && $_G['adminid'] != 1) {
 	dheader("Location: home.php?mod=follow");
 }
+
+$st_p = $_G['uid'].'|'.TIMESTAMP;
+dsetcookie('st_p', $st_p.'|'.md5($st_p.$_G['config']['security']['authkey']));
+
 $close_leftinfo = intval($_G['setting']['close_leftinfo']);
 if($_G['setting']['close_leftinfo_userctrl']) {
 	if($_G['cookie']['close_leftinfo'] == 1) {
@@ -64,7 +69,7 @@ if($_GET['from'] == 'portal' && !$_G['setting']['portalstatus']) {
 	$_GET['from'] = '';
 } elseif($_GET['from'] == 'preview' && !$_G['inajax']) {
 	$_GET['from'] = '';
-} elseif($_GET['from'] == 'album' && ($_G['setting']['guestviewthumb']['flag'] && !$_G['uid'] || !$_G['group']['allowgetimage'])) {
+} elseif($_GET['from'] == 'album' && ($_G['setting']['guestviewthumb']['flag'] && !$_G['uid'] && IN_MOBILE != 2 || !$_G['group']['allowgetimage'])) {
 	$_GET['from'] = '';
 }
 
@@ -95,7 +100,9 @@ $thread['short_subject'] = cutstr($_G['forum_thread']['subject'], 52);
 
 $navigation = '';
 if($_GET['from'] == 'portal') {
-
+	if($_G['forum']['status'] == 3) {
+		_checkviewgroup();
+	}
 	$_G['setting']['ratelogon'] = 1;
 	$navigation = ' <em>&rsaquo;</em> <a href="portal.php">'.lang('core', 'portal').'</a>';
 	$navsubject = $_G['forum_thread']['subject'];
@@ -106,16 +113,7 @@ if($_GET['from'] == 'portal') {
 	$_G['setting']['ratelogon'] = 1;
 
 } elseif($_G['forum']['status'] == 3) {
-	$_G['action']['action'] = 3;
-	require_once libfile('function/group');
-	$status = groupperm($_G['forum'], $_G['uid']);
-	if($status == 1) {
-		showmessage('forum_group_status_off');
-	} elseif($status == 2) {
-		showmessage('forum_group_noallowed', 'forum.php?mod=group&fid='.$_G['fid']);
-	} elseif($status == 3) {
-		showmessage('forum_group_moderated', 'forum.php?mod=group&fid='.$_G['fid']);
-	}
+	_checkviewgroup();
 	$nav = get_groupnav($_G['forum']);
 	$navigation = ' <em>&rsaquo;</em> <a href="group.php">'.$_G['setting']['navs'][3]['navname'].'</a> '.$nav['nav'];
 	$upnavlink = 'forum.php?mod=forumdisplay&amp;fid='.$_G['fid'].($_GET['extra'] && !IS_ROBOT ? '&amp;'.$_GET['extra'] : '');
@@ -283,8 +281,7 @@ if($_G['forum_thread']['attachment']) {
 $exemptvalue = $_G['forum']['ismoderator'] ? 64 : 8;
 $_G['forum_attachmentdown'] = $_G['group']['exempt'] & $exemptvalue;
 
-$seccodecheck = ($_G['setting']['seccodestatus'] & 4) && (!$_G['setting']['seccodedata']['minposts'] || getuserprofile('posts') < $_G['setting']['seccodedata']['minposts']);
-$secqaacheck = $_G['setting']['secqaa']['status'] & 2 && (!$_G['setting']['secqaa']['minposts'] || getuserprofile('posts') < $_G['setting']['secqaa']['minposts']);
+list($seccodecheck, $secqaacheck) = seccheck('post', 'reply');
 $usesigcheck = $_G['uid'] && $_G['group']['maxsigsize'];
 
 $postlist = $_G['forum_attachtags'] = $attachlist = $_G['forum_threadstamp'] = array();
@@ -371,7 +368,6 @@ if($_G['forum_thread']['special'] == 2) {
 	$specialadd2 = 1;
 
 } elseif($_G['forum_thread']['special'] == 5) {
-	$_GET['stand'] = isset($_GET['stand']) && in_array($_GET['stand'], array(0, 1, 2)) ? $_GET['stand'] : null;
 	if(isset($_GET['stand'])) {
 		$specialadd2 = 1;
 		$specialextra = "&amp;stand=$_GET[stand]";
@@ -400,7 +396,6 @@ if(empty($_GET['viewpid'])) {
 		$poststick = C::t('forum_poststick')->fetch_all_by_tid($_G['tid']);
 		foreach(C::t('forum_post')->fetch_all($posttableid, array_keys($poststick)) as $post) {
 			$post['position'] = $poststick[$post['pid']]['position'];
-			$post['message'] = messagecutstr($post['message'], 400);
 			$post['avatar'] = avatar($post['authorid'], 'small');
 			$post['isstick'] = true;
 			$sticklist[$post['pid']] = $post;
@@ -1644,6 +1639,20 @@ function parsebegin($linkaddr, $imgflashurl, $w = 0, $h = 0, $type = 0, $s = 0) 
 	}
 	$begincontent = $content;
 	return $content;
+}
+
+function _checkviewgroup() {
+	global $_G;
+	$_G['action']['action'] = 3;
+	require_once libfile('function/group');
+	$status = groupperm($_G['forum'], $_G['uid']);
+	if($status == 1) {
+		showmessage('forum_group_status_off');
+	} elseif($status == 2) {
+		showmessage('forum_group_noallowed', 'forum.php?mod=group&fid='.$_G['fid']);
+	} elseif($status == 3) {
+		showmessage('forum_group_moderated', 'forum.php?mod=group&fid='.$_G['fid']);
+	}
 }
 
 ?>

@@ -4,7 +4,7 @@
  *		[Discuz!] (C)2001-2099 Comsenz Inc.
  *		This is NOT a freeware, use is subject to license terms
  *
- *		$Id: cloud_security.php 32804 2013-03-13 06:18:00Z liulanbo $
+ *		$Id: cloud_security.php 33861 2013-08-22 09:16:38Z nemohou $
  */
 if(!defined('IN_DISCUZ') || !defined('IN_ADMINCP')) {
 	exit('Access Denied');
@@ -12,16 +12,16 @@ if(!defined('IN_DISCUZ') || !defined('IN_ADMINCP')) {
 
 $op = trim($_GET['op']);
 
-$_GET['anchor'] = in_array($_GET['anchor'], array('index', 'setting', 'thread', 'post', 'member', 'reportOperation')) ? $_GET['anchor'] : 'index';
+$_GET['anchor'] = in_array($_GET['anchor'], array('index', 'setting', 'thread', 'post', 'member', 'reportOperation', 'reopen')) ? $_GET['anchor'] : 'index';
 $pt = in_array($_GET['anchor'], array('thread', 'post')) ? $_GET['anchor'] : 'thread';
 
 $current = array($_GET['anchor'] => 1);
 
 $operateresultmap = array(
-						'0' => 1,
-						'-1' => 0,
-						'-5' => 0
-						);
+	'0' => 1,
+	'-1' => 0,
+	'-5' => 0
+);
 
 $securitynav = array();
 
@@ -33,7 +33,7 @@ $securitynav[4] = array('security_member_list', 'cloud&operation=security&anchor
 
 if (!$_G['inajax']) {
 	cpheader();
-	shownav('navcloud', 'menu_cloud_security', 'security_'.$_GET['anchor'].'_list');
+	shownav('safe', 'menu_cloud_security', 'security_'.$_GET['anchor'].'_list');
 	showsubmenu('menu_cloud_security', $securitynav);
 }
 
@@ -43,9 +43,16 @@ require_once libfile('function/discuzcode');
 require_once libfile('function/core');
 $datas = $data = $eviluids = $evilPids = $evilTids = $members = $thread = $post = '';
 
+if($_GET['anchor'] != 'reopen') {
+	$apps = $appService->getCloudApps();
+	if(empty($apps) || empty($apps[$operation]) || $apps[$operation]['status'] == 'close') {
+		cpmsg('security_reopen', '', 'succeed');
+	}
+}
+
 if ($_GET['anchor'] == 'index') {
 	$utilService = Cloud::loadClass('Service_Util');
-	$signUrl = $utilService->generateSiteSignUrl();
+	$signUrl = $utilService->generateSiteSignUrl(array('v' => 2));
 	$utilService->redirect($cloudDomain.'/security/stats/list/?' . $signUrl);
 } elseif ($_GET['anchor'] == 'setting') {
 
@@ -56,7 +63,7 @@ if ($_GET['anchor'] == 'index') {
 		$evilposts = C::t('common_setting')->fetch('cloud_security_stats_post');
 		$evilmembers = C::t('common_setting')->fetch('cloud_security_stats_member');
 
-		$usergroupswhitelist = unserialize($_G['setting']['security_usergroups_white_list']);
+		$usergroupswhitelist = $_G['setting']['security_usergroups_white_list'];
 		$groupselect = array();
 
 		foreach (C::t('common_usergroup')->fetch_all_not(array('6','7')) as $group) {
@@ -69,7 +76,7 @@ if ($_GET['anchor'] == 'index') {
 			($groupselect['specialadmin'] ? '<optgroup label="'.$lang['usergroups_specialadmin'].'">'.$groupselect['specialadmin'].'</optgroup>' : '').
 			'<optgroup label="'.$lang['usergroups_system'].'">'.$groupselect['system'].'</optgroup>';
 
-		$forumswhitelist = unserialize($_G['setting']['security_forums_white_list']);
+		$forumswhitelist = $_G['setting']['security_forums_white_list'];
 		require_once libfile('function/forumlist');
 		loadcache('forums');
 		$forumselect = str_replace('%', '%%', forumselect(FALSE, 0, $forumswhitelist, TRUE));
@@ -204,6 +211,15 @@ if ($_GET['anchor'] == 'index') {
 
 	showtablefooter();
 	showformfooter();
+} elseif($_GET['anchor'] == 'reopen') {
+	Cloud::loadFile('Service_Client_Cloud');
+	$Cloud_Service_Client_Cloud = new Cloud_Service_Client_Cloud;
+	$return = $Cloud_Service_Client_Cloud->appOpenWithRegister('security');
+	if($return['errCode']) {
+		cpmsg($return['errMessage'], 'action=cloud&operation=security&anchor=index', 'error');
+	} else {
+		dheader('location: '.ADMINSCRIPT.'?action=cloud&operation=security&anchor=index');
+	}
 }
 echo "
 		<script type='text/javascript'>

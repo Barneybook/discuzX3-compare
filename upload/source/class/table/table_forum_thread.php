@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: table_forum_thread.php 33147 2013-04-27 09:58:40Z theoliu $
+ *      $Id: table_forum_thread.php 34511 2014-05-13 05:51:33Z laoguozhang $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -74,7 +74,7 @@ class table_forum_thread extends discuz_table
 		$threadtableids = array('0' => 0);
 		$db = DB::object();
 		$query = $db->query("SHOW TABLES LIKE '".str_replace('_', '\_', DB::table('forum_thread').'_%')."'");
-		while($table = $db->fetch_array($query, MYSQL_NUM)) {
+		while($table = $db->fetch_array($query, $db->drivertype == 'mysqli' ? MYSQLI_NUM : MYSQL_NUM)) {
 			$tablename = $table[0];
 			$tableid = intval(substr($tablename, strrpos($tablename, '_') + 1));
 			if(empty($tableid)) {
@@ -521,7 +521,7 @@ class table_forum_thread extends discuz_table
 			}
 		}
 		$data = DB::fetch_all("SELECT * FROM ".DB::table($this->get_table_name($tableid))." $forceindex".$this->search_condition($conditions)." $ordersql ".DB::limit($start, $limit));
-		if($firstpage && !empty($tlkey) && ($ttl = getglobal('setting/memory/forum_thread_forumdisplay')) !== null) {
+		if(!defined('IN_MOBILE') && $firstpage && !empty($tlkey) && ($ttl = getglobal('setting/memory/forum_thread_forumdisplay')) !== null) {
 			$this->store_cache($tlkey, $data, $ttl, 'forumdisplay_');
 		}
 		return $data;
@@ -789,6 +789,10 @@ class table_forum_thread extends discuz_table
 		} elseif($conditions['highlight'] == 2) {
 			$wherearr[] = $prefix.DB::field('highlight', 0);
 			$this->_urlparam[] = "highlight=2";
+		}
+		if($conditions['hidden'] == 1) {
+			$wherearr[] = $prefix.DB::field('hidden', 0, '>');
+			$this->_urlparam[] = "hidden=1";
 		}
 		if(!empty($conditions['special'])) {
 			$this->_urlparam[] = "special={$conditions['special']}";
@@ -1123,6 +1127,9 @@ class table_forum_thread extends discuz_table
 		$target = intval($target);
 		if($source != $target) {
 			DB::query('REPLACE INTO %t SELECT * FROM %t WHERE tid IN (%n)', array($this->get_table_name($target), $this->get_table_name($source), $tids));
+			if(!$source) {
+				C::t('forum_threadhidelog')->delete_by_tid($tids);
+			}
 			return DB::delete($this->get_table_name($source), DB::field('tid', $tids));
 		} else {
 			return false;

@@ -2,7 +2,7 @@
 	[Discuz!] (C)2001-2099 Comsenz Inc.
 	This is NOT a freeware, use is subject to license terms
 
-	$Id: editor.js 32700 2013-03-01 03:06:43Z monkey $
+	$Id: editor.js 34039 2013-09-24 02:37:27Z nemohou $
 */
 
 var editorcurrentheight = 400, editorminheight = 400, savedataInterval = 30, editbox = null, editwin = null, editdoc = null, editcss = null, savedatat = null, savedatac = 0, autosave = 1, framemObj = null, cursor = -1, stack = [], initialized = false, postSubmited = false, editorcontroltop = false, editorcontrolwidth = false, editorcontrolheight = false, editorisfull = 0, fulloldheight = 0, savesimplodemode = null;
@@ -14,7 +14,7 @@ var EXTRASELECTION = '', EXTRASEL = null;
 
 function newEditor(mode, initialtext) {
 	wysiwyg = parseInt(mode);
-	if(!(BROWSER.ie || BROWSER.firefox || (BROWSER.opera >= 9))) {
+	if(!(BROWSER.ie || BROWSER.firefox || (BROWSER.opera >= 9 || BROWSER.rv))) {
 		allowswitcheditor = wysiwyg = 0;
 	}
 	if(!allowswitcheditor) {
@@ -113,15 +113,33 @@ function initesbar() {
 	if(!$(editorid + '_adv_s3')) {
 		return;
 	}
-	var btns = $(editorid + '_adv_s3').getElementsByTagName('A');
+	var buttons = $(editorid + '_adv_s3').getElementsByTagName('A');
 	var s = '';
-	for(i = 0;i < btns.length;i++) {
+	for(i = 0;i < buttons.length;i++) {
 		if(i/2 == parseInt(i/2)) {
 			s += '<p>';
 		}
-		s += btns[i].outerHTML;
+		s += buttons[i].outerHTML;
 	}
 	$(editorid + '_adv_s3').innerHTML = s;
+	for(var i = 0; i < buttons.length; i++) {
+		if(buttons[i].id.indexOf(editorid + '_') != -1) {
+			buttons[i].href = 'javascript:;';
+			if(buttons[i].id.substr(buttons[i].id.indexOf('_') + 1) == 'fullswitcher') {
+			} else if(buttons[i].id.substr(buttons[i].id.indexOf('_') + 1) == 'simple') {
+			} else {
+				_attachEvent(buttons[i], 'mouseover', function(e) {setEditorTip(BROWSER.ie ? window.event.srcElement.title : e.target.title);});
+				if(buttons[i].id.substr(buttons[i].id.indexOf('_') + 1) == 'url') {
+					buttons[i].onclick = function(e) {discuzcode('unlink');discuzcode('url');doane();};
+				} else {
+					if(!buttons[i].getAttribute('init')) {
+						buttons[i].onclick = function(e) {discuzcode(this.id.substr(this.id.indexOf('_') + 1));doane();};
+					}
+				}
+			}
+			buttons[i].onmouseout = function(e) {setEditorTip('');};
+		}
+	}
 }
 
 function savedataTime() {
@@ -514,6 +532,13 @@ function writeEditorContents(text) {
 				editdoc.onclick = safariSel;
 			}
 		}
+		if(BROWSER.ie && BROWSER.ie <= 8) {
+			checkpostbg = /<style[^>]+name="editorpostbg"[^>]*>body{background-image:url\("([^\[\<\r\n;'\"\?\(\)]+?)"\);}<\/style>/ig;
+			var matches = checkpostbg.exec(text);
+			if(matches != null) {
+				editdoc.body.innerHTML += '<style type="text/css" name="editorpostbg">body{background-image:url("'+matches[1]+'");}</style>';
+			}
+		}
 	} else {
 		textobj.value = text;
 	}
@@ -855,7 +880,7 @@ function discuzcode(cmd, arg) {
 		var oldValidate = editorform.onsubmit;
 		var oldAction = editorform.action;
 		editorform.onsubmit = '';
-		editorform.action = 'forum.php?mod=ajax&action=downremoteimg&fid='+fid+'&wysiwyg='+(wysiwyg ? 1 : 0);
+		editorform.action = 'forum.php?mod=ajax&action=downremoteimg&inajax=1&fid='+fid+'&wysiwyg='+(wysiwyg ? 1 : 0);
 		editorform.target = "ajaxpostframe";
 		editorform.message.value = message;
 		editorform.submit();
@@ -1283,7 +1308,9 @@ function showEditorMenu(tag, params) {
 			case 'vid':
 				var mediaUrl = $(ctrlid + '_param_1').value;
 				var auto = '';
-				var ext = mediaUrl.lastIndexOf('.') == -1 ? '' : mediaUrl.substr(mediaUrl.lastIndexOf('.') + 1, mb_strlen(mediaUrl)).toLowerCase();
+				var posque = mediaUrl.lastIndexOf('?');
+				posque = posque === -1 ? mb_strlen(mediaUrl) : posque;
+				var ext = mediaUrl.lastIndexOf('.') === -1 ? '' : mediaUrl.substring(mediaUrl.lastIndexOf('.') + 1, posque).toLowerCase();
 				ext = in_array(ext, ['mp3', 'wma', 'ra', 'rm', 'ram', 'mid', 'asx', 'wmv', 'avi', 'mpg', 'mpeg', 'rmvb', 'asf', 'mov', 'flv', 'swf']) ? ext : 'x';
 				if(ext == 'x') {
 					if(/^mms:\/\//.test(mediaUrl)) {
@@ -1302,7 +1329,7 @@ function showEditorMenu(tag, params) {
 				var style = '';
 				if(wysiwyg) {
 					style += width ? ' width=' + width : '';
-					style += height ? ' height=' + height : '';
+					style += height ? ' _height=' + height : '';
 					var str = '<img src=' + src + style + ' border=0 />';
 					insertText(str, str.length, 0, false, sel);
 				} else {
@@ -1410,14 +1437,26 @@ function insertText(text, movestart, moveend, select, sel) {
 	checkFocus();
 	if(wysiwyg) {
 		try {
-			editdoc.execCommand('insertHTML', false, text);
+			var sel = editdoc.getSelection();
+			var range = sel.getRangeAt(0);
+			if(range && range.insertNode) {
+				range.deleteContents();
+			}
+			var frag = range.createContextualFragment(text);
+			var lnode = frag.lastChild;
+			range.insertNode(frag);
+			range.setEndAfter(lnode);
+			range.setStartAfter(lnode);
+			sel.removeAllRanges();
+			sel.addRange(range);
 		} catch(e) {
+			sel = null;
 			if(!isUndefined(editdoc.selection) && editdoc.selection.type != 'Text' && editdoc.selection.type != 'None') {
 				movestart = false;
 				editdoc.selection.clear();
 			}
 
-			if(isUndefined(sel)) {
+			if(isUndefined(sel) || sel == null) {
 				sel = editdoc.selection.createRange();
 			}
 

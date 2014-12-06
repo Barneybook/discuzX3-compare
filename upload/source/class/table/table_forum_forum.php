@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: table_forum_forum.php 31920 2012-10-24 09:18:33Z zhengqingpeng $
+ *      $Id: table_forum_forum.php 33548 2013-07-04 08:19:27Z laoguozhang $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -101,6 +101,9 @@ class table_forum_forum extends discuz_table
 	public function fetch_threadcacheon_num() {
 		return DB::result_first("SELECT COUNT(*) FROM ".DB::table($this->_table)." WHERE status='1' AND threadcaches>0");
 	}
+	public function fetch_all_by_recyclebin($recyclebin) {
+		return DB::fetch_all('SELECT fid, name FROM %t WHERE status<3 AND type IN (\'forum\', \'sub\') AND recyclebin=%d', array($this->_table, $recyclebin));
+	}
 	public function update_threadcaches($threadcache, $fids) {
 		if(empty($fids)) {
 			return false;
@@ -130,7 +133,7 @@ class table_forum_forum extends discuz_table
 		return DB::fetch_first("SELECT SUM(todayposts) AS todayposts, COUNT(fid) AS groupnum FROM ".DB::table($this->_table)." WHERE status='3' AND type='sub'");
 	}
 	public function fetch_all_sub_group_by_fup($fups, $limit = 20) {
-		return DB::result_first("SELECT fid, name FROM %t WHERE fup IN(%n) AND type='sub' AND level>'-1' ORDER BY commoncredits DESC LIMIT %d", array($this->_table, $fups, $limit));
+		return DB::fetch_all("SELECT fid, fup, name FROM %t WHERE fup IN(%n) AND type='sub' AND level>'-1' ORDER BY commoncredits DESC LIMIT %d", array($this->_table, $fups, $limit), $this->_pk);
 	}
 	public function fetch_all_for_threadsorts() {
 		return DB::fetch_all("SELECT f.fid, f.name, ff.threadsorts FROM ".DB::table($this->_table)." f , ".DB::table('forum_forumfield')." ff WHERE ff.threadsorts<>'' AND f.fid=ff.fid");

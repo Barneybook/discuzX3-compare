@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: model_forum_thread.php 32866 2013-03-18 02:45:33Z zhangjie $
+ *      $Id: model_forum_thread.php 33881 2013-08-27 03:10:46Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -111,6 +111,8 @@ class model_forum_thread extends discuz_model
 		$this->param['allownoticeauthor'] && $this->param['tstatus'] = setstatus(6, 1, $this->param['tstatus']);
 		$this->param['isgroup'] = $this->forum['status'] == 3 ? 1 : 0;
 
+		$this->param['publishdate'] = !$this->param['modnewthreads'] ? $this->param['publishdate'] : TIMESTAMP;
+
 		$newthread = array(
 			'fid' => $this->forum['fid'],
 			'posttableid' => 0,
@@ -189,6 +191,7 @@ class model_forum_thread extends discuz_model
 			'dateline' => $this->param['publishdate'],
 			'message' => $this->param['message'],
 			'useip' => $this->param['clientip'] ? $this->param['clientip'] : getglobal('clientip'),
+			'port' => $this->param['remoteport'] ? $this->param['remoteport'] : getglobal('remoteport'),
 			'invisible' => $this->param['pinvisible'],
 			'anonymous' => $this->param['isanonymous'],
 			'usesig' => $this->param['usesig'],
@@ -205,6 +208,7 @@ class model_forum_thread extends discuz_model
 		$statarr = array(0 => 'thread', 1 => 'poll', 2 => 'trade', 3 => 'reward', 4 => 'activity', 5 => 'debate', 127 => 'thread');
 		include_once libfile('function/stat');
 		updatestat($this->param['isgroup'] ? 'groupthread' : $statarr[$this->param['special']]);
+
 
 		if($this->param['geoloc'] && IN_MOBILE == 2) {
 			list($mapx, $mapy, $location) = explode('|', $this->param['geoloc']);

@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: connect_login.php 33177 2013-05-06 02:43:31Z theoliu $
+ *      $Id: connect_login.php 33793 2013-08-14 07:26:06Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -28,32 +28,42 @@ if($op == 'init') {
 	if($_G['member']['conisbind'] && $_GET['reauthorize']) {
 		if($_GET['formhash'] == FORMHASH) {
 			$connectService->connectMergeMember();
-			$connectService->connectUserUnbind();
 		} else {
 			showmessage('submit_invalid');
 		}
 	}
 
-	dsetcookie('con_request_token');
-	dsetcookie('con_request_token_secret');
+	$callback = $_G['connect']['callback_url'] . '&referer=' . urlencode($_GET['referer']) . (!empty($_GET['isqqshow']) ? '&isqqshow=yes' : '');
 
-	try {
-		$callback = $_G['connect']['callback_url'] . '&referer=' . urlencode($_GET['referer']) . (!empty($_GET['isqqshow']) ? '&isqqshow=yes' : '');
-		$response = $connectOAuthClient->connectGetRequestToken($callback);
-	} catch(Exception $e) {
-		showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
-	}
+	if(!$_G['setting']['connect']['oauth2']) {
+		dsetcookie('con_request_token');
+		dsetcookie('con_request_token_secret');
+		try {
+			$response = $connectOAuthClient->connectGetRequestToken($callback);
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
 
-	$request_token = $response['oauth_token'];
-	$request_token_secret = $response['oauth_token_secret'];
+		$request_token = $response['oauth_token'];
+		$request_token_secret = $response['oauth_token_secret'];
 
-	dsetcookie('con_request_token', $request_token);
-	dsetcookie('con_request_token_secret', $request_token_secret);
+		dsetcookie('con_request_token', $request_token);
+		dsetcookie('con_request_token_secret', $request_token_secret);
 
-	$redirect = $connectOAuthClient->getOAuthAuthorizeURL($request_token);
-
-	if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
-		$redirect .= '&oauth_style=mobile';
+		$redirect = $connectOAuthClient->getOAuthAuthorizeURL($request_token);
+		if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
+			$redirect .= '&oauth_style=mobile';
+		}
+	} else {
+		try {
+			dsetcookie('con_request_uri', $callback);
+			$redirect = $connectOAuthClient->getOAuthAuthorizeURL_V2($callback);
+			if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
+				$redirect .= '&display=mobile';
+			}
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
 	}
 
 	dheader('Location:' . $redirect);
@@ -68,20 +78,40 @@ if($op == 'init') {
 		exit;
 	}
 
-	try {
-		$response = $connectOAuthClient->connectGetAccessToken($params, $_G['cookie']['con_request_token_secret']);
-	} catch(Exception $e) {
-		showmessage('qqconnect:connect_get_access_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
-	}
+	if(!$_G['setting']['connect']['oauth2']) {
+		try {
+			$response = $connectOAuthClient->connectGetAccessToken($params, $_G['cookie']['con_request_token_secret']);
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_access_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
 
-	dsetcookie('con_request_token');
-	dsetcookie('con_request_token_secret');
+		dsetcookie('con_request_token');
+		dsetcookie('con_request_token_secret');
 
-	$conuin = $response['oauth_token'];
-	$conuinsecret = $response['oauth_token_secret'];
-	$conopenid = strtoupper($response['openid']);
-	if(!$conuin || !$conuinsecret || !$conopenid) {
-		showmessage('qqconnect:connect_get_access_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		$conuin = $response['oauth_token'];
+		$conuinsecret = $response['oauth_token_secret'];
+		$conopenid = strtoupper($response['openid']);
+		if(!$conuin || !$conuinsecret || !$conopenid) {
+			showmessage('qqconnect:connect_get_access_token_failed_code', $referer);
+		}
+	} else {
+		if($_GET['state'] != md5(FORMHASH)){
+			showmessage('qqconnect:connect_get_access_token_failed', $referer);
+		}
+		try {
+			$response = $connectOAuthClient->connectGetOpenId_V2($_G['cookie']['con_request_uri'], $_GET['code']);
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_access_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
+
+		dsetcookie('con_request_token');
+		dsetcookie('con_request_token_secret');
+
+		$conuintoken = $response['access_token'];
+		$conopenid = strtoupper($response['openid']);
+		if(!$conuintoken || !$conopenid) {
+			showmessage('qqconnect:connect_get_access_token_failed', $referer);
+		}
 	}
 
 	loadcache('connect_blacklist');
@@ -153,9 +183,15 @@ if($op == 'init') {
 				showmessage('qqconnect:connect_register_bind_already', $referer);
 			}
 			C::t('#qqconnect#common_member_connect')->update($_G['uid'],
-				array(
+				!$_G['setting']['connect']['oauth2'] ? array(
 					'conuin' => $conuin,
 					'conuinsecret' => $conuinsecret,
+					'conopenid' => $conopenid,
+					'conisregister' => 0,
+					'conisfeed' => 1,
+					'conisqqshow' => $isqqshow,
+				) : array(
+					'conuintoken' => $conuintoken,
 					'conopenid' => $conopenid,
 					'conisregister' => 0,
 					'conisfeed' => 1,
@@ -166,10 +202,20 @@ if($op == 'init') {
 		} else { // debug 當前登錄的論壇賬號並沒有綁定任何QQ號，則可以綁定當前的這個QQ號
 			if(empty($current_connect_member)) {
 				C::t('#qqconnect#common_member_connect')->insert(
-					array(
+					!$_G['setting']['connect']['oauth2'] ? array(
 						'uid' => $_G['uid'],
 						'conuin' => $conuin,
 						'conuinsecret' => $conuinsecret,
+						'conopenid' => $conopenid,
+						'conispublishfeed' => $conispublishfeed,
+						'conispublisht' => $conispublisht,
+						'conisregister' => 0,
+						'conisfeed' => 1,
+						'conisqqshow' => $isqqshow,
+					) : array(
+						'uid' => $_G['uid'],
+						'conuin' => '',
+						'conuintoken' => $conuintoken,
 						'conopenid' => $conopenid,
 						'conispublishfeed' => $conispublishfeed,
 						'conispublisht' => $conispublisht,
@@ -180,9 +226,17 @@ if($op == 'init') {
 				);
 			} else {
 				C::t('#qqconnect#common_member_connect')->update($_G['uid'],
-					array(
+					!$_G['setting']['connect']['oauth2'] ? array(
 						'conuin' => $conuin,
 						'conuinsecret' => $conuinsecret,
+						'conopenid' => $conopenid,
+						'conispublishfeed' => $conispublishfeed,
+						'conispublisht' => $conispublisht,
+						'conisregister' => 0,
+						'conisfeed' => 1,
+						'conisqqshow' => $isqqshow,
+					) : array(
+						'conuintoken' => $conuintoken,
 						'conopenid' => $conopenid,
 						'conispublishfeed' => $conispublishfeed,
 						'conispublisht' => $conispublisht,
@@ -224,9 +278,13 @@ if($op == 'init') {
 
 		if($connect_member) { // debug 此分支是用戶直接點擊QQ登錄，並且這個QQ號已經綁好一個論壇賬號了，將直接登進論壇了
 			C::t('#qqconnect#common_member_connect')->update($connect_member['uid'],
-				array(
+				!$_G['setting']['connect']['oauth2'] ? array(
 					'conuin' => $conuin,
 					'conuinsecret' => $conuinsecret,
+					'conopenid' => $conopenid,
+					'conisfeed' => 1,
+				) : array(
+					'conuintoken' => $conuintoken,
 					'conopenid' => $conopenid,
 					'conisfeed' => 1,
 				)
@@ -252,9 +310,12 @@ if($op == 'init') {
 		} else { // debug 此分支是用戶直接點擊QQ登錄，並且這個QQ號還未綁定任何論壇賬號，將將跳轉到一個新頁引導用戶註冊個新論壇賬號或綁一個已有的論壇賬號
 
 			$auth_hash = authcode($conopenid, 'ENCODE');
-			$insert_arr = array(
+			$insert_arr = !$_G['setting']['connect']['oauth2'] ? array(
 				'conuin' => $conuin,
 				'conuinsecret' => $conuinsecret,
+				'conopenid' => $conopenid,
+			) : array(
+				'conuintoken' => $conuintoken,
 				'conopenid' => $conopenid,
 			);
 
@@ -262,14 +323,26 @@ if($op == 'init') {
 			if ($connectGuest['conqqnick']) {
 				$insert_arr['conqqnick'] = $connectGuest['conqqnick'];
 			} else {
-				try {
-					$connectOAuthClient = Cloud::loadClass('Service_Client_ConnectOAuth');
-					$connectUserInfo = $connectOAuthClient->connectGetUserInfo($conopenid, $conuin, $conuinsecret);
-					if ($connectUserInfo['nickname']) {
-						$connectUserInfo['nickname'] = strip_tags($connectUserInfo['nickname']);
-						$insert_arr['conqqnick'] = $connectUserInfo['nickname'];
+				if(!$_G['setting']['connect']['oauth2']) {
+					try {
+						$connectOAuthClient = Cloud::loadClass('Service_Client_ConnectOAuth');
+						$connectUserInfo = $connectOAuthClient->connectGetUserInfo($conopenid, $conuin, $conuinsecret);
+						if ($connectUserInfo['nickname']) {
+							$connectUserInfo['nickname'] = strip_tags($connectUserInfo['nickname']);
+							$insert_arr['conqqnick'] = $connectUserInfo['nickname'];
+						}
+					} catch(Exception $e) {
 					}
-				} catch(Exception $e) {
+				} else {
+					try {
+						$connectOAuthClient = Cloud::loadClass('Service_Client_ConnectOAuth');
+						$connectUserInfo = $connectOAuthClient->connectGetUserInfo_V2($conopenid, $conuintoken);
+						if ($connectUserInfo['nickname']) {
+							$connectUserInfo['nickname'] = strip_tags($connectUserInfo['nickname']);
+							$insert_arr['conqqnick'] = $connectUserInfo['nickname'];
+						}
+					} catch(Exception $e) {
+					}
 				}
 			}
 
@@ -299,26 +372,38 @@ if($op == 'init') {
 	}
 
 } elseif($op == 'change') {
-	dsetcookie('con_request_token');
-	dsetcookie('con_request_token_secret');
-
 	$callback = $_G['connect']['callback_url'] . '&referer=' . urlencode($_GET['referer']);
-	try {
-		$response = $connectOAuthClient->connectGetRequestToken($callback);
-	} catch(Exception $e) {
-		showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
-	}
 
-	$request_token = $response['oauth_token'];
-	$request_token_secret = $response['oauth_token_secret'];
+	if(!$_G['setting']['connect']['oauth2']) {
+		dsetcookie('con_request_token');
+		dsetcookie('con_request_token_secret');
+		try {
+			$response = $connectOAuthClient->connectGetRequestToken($callback);
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
 
-	dsetcookie('con_request_token', $request_token);
-	dsetcookie('con_request_token_secret', $request_token_secret);
+		$request_token = $response['oauth_token'];
+		$request_token_secret = $response['oauth_token_secret'];
 
-	$redirect = $connectOAuthClient->getOAuthAuthorizeURL($request_token);
+		dsetcookie('con_request_token', $request_token);
+		dsetcookie('con_request_token_secret', $request_token_secret);
 
-	if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
-		$redirect .= '&oauth_style=mobile';
+		$redirect = $connectOAuthClient->getOAuthAuthorizeURL($request_token);
+
+		if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
+			$redirect .= '&oauth_style=mobile';
+		}
+	} else {
+		try {
+			dsetcookie('con_request_uri', $callback);
+			$redirect = $connectOAuthClient->getOAuthAuthorizeURL_V2($callback);
+			if(defined('IN_MOBILE') || $_GET['oauth_style'] == 'mobile') {
+				$redirect .= '&display=mobile';
+			}
+		} catch(Exception $e) {
+			showmessage('qqconnect:connect_get_request_token_failed_code', $referer, array('codeMessage' => getErrorMessage($e->getmessage()), 'code' => $e->getmessage()));
+		}
 	}
 
 	dheader('Location:' . $redirect);

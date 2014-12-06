@@ -111,4 +111,12 @@ if (file_exists(DISCUZ_ROOT . './source/include/cron/cron_security_daily.php')) 
 	discuz_cron::run($cronId_security_daily);
 }
 
+if(!C::t('common_setting')->skey_exists('security_safelogin')) {
+	C::t('common_setting')->update('security_safelogin', 1);
+	updatecache('setting');
+}
+
+$cloudClient = & Cloud::loadClass('Service_Client_Cloud', array(true));
+$cloudClient->sync();
+
 $finish = true;

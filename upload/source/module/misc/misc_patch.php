@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: misc_patch.php 32559 2013-02-20 09:35:24Z monkey $
+ *      $Id: misc_patch.php 33690 2013-08-02 09:07:22Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -91,13 +91,17 @@ if($_GET['action'] == 'checkpatch') {
 } elseif($_GET['action'] == 'ipnotice') {
 	require_once libfile('function/misc');
 	include template('common/header_ajax');
-	if($_G['cookie']['lip'] && $_G['cookie']['lip'] != ',' && $_G['uid']) {
+	if($_G['cookie']['lip'] && $_G['cookie']['lip'] != ',' && $_G['uid'] && $_G['setting']['disableipnotice'] != 1) {
 		$status = C::t('common_member_status')->fetch($_G['uid']);
 		$lip = explode(',', $_G['cookie']['lip']);
 		$lastipConvert = convertip($lip[0]);
 		$lastipDate = dgmdate($lip[1]);
 		$nowipConvert = convertip($status['lastip']);
-		if($lastipConvert != $nowipConvert) {
+
+		$lastipConvert = process_ipnotice($lastipConvert);
+		$nowipConvert = process_ipnotice($nowipConvert);
+
+		if($lastipConvert != $nowipConvert && stripos($lastipConvert, $nowipConvert) == false && stripos($nowipConvert, $lastipConvert) == false) {
 			$lang = lang('forum/misc');
 			include template('common/ipnotice');
 		}

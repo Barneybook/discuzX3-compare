@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: extend_thread_comment.php 32746 2013-03-05 10:29:02Z liulanbo $
+ *      $Id: extend_thread_comment.php 33709 2013-08-06 09:06:56Z andyzheng $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -31,7 +31,7 @@ class extend_thread_comment extends extend_thread_base {
 				$rpid = intval($_GET['reppid']);
 				if($rpost = C::t('forum_post')->fetch('tid:'.$this->thread['tid'], $rpid)) {
 					if(!$rpost['first']) {
-						C::t('forum_postcomment')->insert(array(
+						$cid = C::t('forum_postcomment')->insert(array(
 							'tid' => $this->thread['tid'],
 							'pid' => $rpid,
 							'rpid' => $this->pid,
@@ -41,7 +41,9 @@ class extend_thread_comment extends extend_thread_base {
 							'comment' => $this->postcomment,
 							'score' => 0,
 							'useip' => getglobal('clientip'),
-						));
+							'port'=>getglobal('remoteport')
+						), true);
+
 						C::t('forum_post')->update('tid:'.$this->thread['tid'], $rpid, array('comment' => 1));
 						C::t('forum_postcache')->delete($rpid);
 					}

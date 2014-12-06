@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: post_newreply.php 33239 2013-05-08 07:35:08Z nemohou $
+ *      $Id: post_newreply.php 33709 2013-08-06 09:06:56Z andyzheng $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -81,7 +81,7 @@ if($_G['setting']['commentnumber'] && !empty($_GET['comment'])) {
 	if(!$comment) {
 		showmessage('post_sm_isnull');
 	}
-	C::t('forum_postcomment')->insert(array(
+	$pcid = C::t('forum_postcomment')->insert(array(
 		'tid' => $post['tid'],
 		'pid' => $post['pid'],
 		'author' => $_G['username'],
@@ -90,8 +90,10 @@ if($_G['setting']['commentnumber'] && !empty($_GET['comment'])) {
 		'comment' => $comment,
 		'score' => $commentscore ? 1 : 0,
 		'useip' => $_G['clientip'],
-	));
+		'port'=> $_G['remoteport']
+	), true);
 	C::t('forum_post')->update('tid:'.$_G['tid'], $_GET['pid'], array('comment' => 1));
+
 	$comments = $thread['comments'] ? $thread['comments'] + 1 : C::t('forum_postcomment')->count_by_tid($_G['tid']);
 	C::t('forum_thread')->update($_G['tid'], array('comments' => $comments));
 	!empty($_G['uid']) && updatepostcredits('+', $_G['uid'], 'reply', $_G['fid']);
@@ -158,7 +160,11 @@ if(getstatus($thread['status'], 3)) {
 	}
 
 }
+
 if(!submitcheck('replysubmit', 0, $seccodecheck, $secqaacheck)) {
+
+	$st_p = $_G['uid'].'|'.TIMESTAMP;
+	dsetcookie('st_p', $st_p.'|'.md5($st_p.$_G['config']['security']['authkey']));
 
 	if($thread['special'] == 2 && ((!isset($_GET['addtrade']) || $thread['authorid'] != $_G['uid']) && !$tradenum = C::t('forum_trade')->fetch_counter_thread_goods($_G['tid']))) {
 		showmessage('trade_newreply_nopermission', NULL);
@@ -435,7 +441,16 @@ if(!submitcheck('replysubmit', 0, $seccodecheck, $secqaacheck)) {
 	if($modpost->param('modnewreplies')) {
 		$url = "forum.php?mod=viewthread&tid=".$_G['tid'];
 	} else {
-		$url = "forum.php?mod=viewthread&tid=".$_G['tid']."&pid=".$modpost->pid."&page=".$modpost->param('page')."&extra=".$extra."#pid".$modpost->pid;
+
+		$antitheft = '';
+		if(!empty($_G['setting']['antitheft']['allow']) && empty($_G['setting']['antitheft']['disable']['thread']) && empty($_G['forum']['noantitheft'])) {
+			$sign = helper_antitheft::get_sign($_G['tid'], 'tid');
+			if($sign) {
+				$antitheft = '&_dsign='.$sign;
+			}
+		}
+
+		$url = "forum.php?mod=viewthread&tid=".$_G['tid']."&pid=".$modpost->pid."&page=".$modpost->param('page')."$antitheft&extra=".$extra."#pid".$modpost->pid;
 	}
 
 	if(!isset($inspacecpshare)) {

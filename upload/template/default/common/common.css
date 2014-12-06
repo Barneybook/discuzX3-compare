@@ -665,7 +665,9 @@ CSS 寫作注意事項：
 	Last Modify:	alice 2013021313
 */
 #mn_userapp .icon_down {background: url({IMGDIR}/arr_w.gif) no-repeat 50% 50%; display:inline-block; width:12px; height:12px; overflow:hidden; margin-left:3px; }
+.ie6 #mn_userapp .icon_down {height:24px;vertical-align: middle;}
 #nv li.a .icon_down {background: url({IMGDIR}/arr_w.gif) no-repeat  50% 50%; display:inline-block; width:12px; height:12px; overflow:hidden; margin-left:3px; }
+.ie6 #nv li.a .icon_down {height:24px;vertical-align: middle;}
 #mn_userapp_menu { clear: left; min-height: 210px; min-width: 630px; }
 .ie6 #mn_userapp_menu { height: 210px; width: 630px; }
 	#mn_userapp_menu ul.mrec{ float:left; width:182px; padding-right:5px; border-right:1px dotted {DROPMENUBORDER}; }
@@ -910,7 +912,7 @@ CSS 寫作注意事項：
 	.xl label, .xl label a { color: #C00; }
 	.xl1 li { height: 1.5em; overflow: hidden; }
 		.xl1_elp { float: left; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.xl2 li { float: left; margin: 2px 0; padding: 0; width: 48.6%; height: 1.5em; overflow: hidden; }
+	.xl2 li { float: left; margin: 2px 0; padding: 0; width: 50%; height: 1.5em; overflow: hidden; }
 	.xl ol, ol.xl { background: url({IMGDIR}/sortnum.png) no-repeat 0 3px; line-height: 21px; }
 		.xl ol li, ol.xl li { background: none; padding-left: 20px; }
 		.xl ol li, ol.xl li { height: 21px; }
@@ -1084,6 +1086,7 @@ CSS 寫作注意事項：
 			.ignore_notice { background: url({IMGDIR}/close.gif) no-repeat 0 0; position:absolute; right:0; top:0; width:12px; height:12px; overflow:hidden; }
 			.p_pop .ignore_noticeli a,.p_pop .ignore_noticeli a:hover,.p_pop .ignore_noticeli a.a { background:none; border-bottom:0; }
 			.p_pop .notice_interactive, .p_pop .notice_system, .p_pop .notice_manage, .p_pop .notice_app, .p_pop .notice_mypost { margin: 3px 2px 5px 0;}
+			.ie6 .ignore_notice { display: none; }
 
 		/* .blk -> block 內容較為複雜的彈出層使用 .blk 的 class，內部的 a 標籤重新定義 */
 		.blk a, .inlinelist a { display: inline; padding: 0; border: none; }
@@ -1773,6 +1776,6 @@ DIY圖片幻燈片未加載時隱藏,模塊標識隱藏
 		
 /* 大分頁按鈕 by theo */
 .pgbtn { margin: 5px 0 10px; }
-	.pgbtn a { display: block; height: 40px; line-height: 40px; letter-spacing: 5px; text-align: center; border: 1px solid #DCDCDC; background: #F5F5F5 url({STYLEIMGDIR}/bg_pgbtn.png) repeat-x 0 0; font-size: 14px; outline: none; border-radius: 5px; box-shadow: 0 1px 0 #F5F5F5; }
+	.pgbtn a { display: block; height: 40px; line-height: 40px; letter-spacing: 5px; text-align: center; border: 1px solid #DCDCDC; font-size: 14px; outline: none; border-radius: 5px; box-shadow: 0 1px 0 #F5F5F5; }
 		.pgbtn a:hover { border-color: #BABABA; text-decoration: none; }
 		.pgbtn a:active { background: #EEE; border-color: #D0D0D0; box-shadow: none; }

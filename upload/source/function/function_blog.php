@@ -4,13 +4,22 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: function_blog.php 33004 2013-04-07 02:22:48Z zhengqingpeng $
+ *      $Id: function_blog.php 34342 2014-02-25 07:45:57Z hypowang $
  */
 
 if(!defined('IN_DISCUZ')) {
 	exit('Access Denied');
 }
 
+function blog_check_url($url) {
+	$url = durlencode(trim($url));
+	if(preg_match("/^(https?|ftp|gopher|news|telnet|rtsp|mms|callto|bctp|thunder|qqdl|synacast){1}:\/\//i", $url)) {
+		$return = '<a href="'.$url.'" target="_blank">';
+	} else {
+		$return = '<a href="'.(!empty($GLOBALS['_G']['siteurl']) ? $GLOBALS['_G']['siteurl'] : 'http://').$url.'" target="_blank">';
+	}
+	return $return;
+}
 function blog_post($POST, $olds=array()) {
 	global $_G, $space;
 
@@ -63,10 +72,10 @@ function blog_post($POST, $olds=array()) {
 		$POST['message'] = censor($POST['message']);
 		$POST['message'] = preg_replace(array(
 			"/\<div\>\<\/div\>/i",
-			"/\<a\s+href\=\"([^\>]+?)\"\>/i"
+			"/\<a\s+href\=\"([^\>]+?)\"\>/ie"
 		), array(
 			'',
-			'<a href="\\1" target="_blank">'
+			'blog_check_url(\'\\1\')'
 		), $POST['message']);
 	}
 	$message = $POST['message'];
@@ -215,6 +224,7 @@ function blog_post($POST, $olds=array()) {
 	$fieldarr = array(
 		'message' => $message,
 		'postip' => $_G['clientip'],
+		'port' => $_G['remoteport'],
 		'target_ids' => $POST['target_ids'],
 		'tag' => $POST['tag']
 	);
@@ -268,14 +278,14 @@ function checkhtml($html) {
 		$replaces[] = '&gt;';
 
 		if($ms[1]) {
-			$allowtags = 'img|a|font|div|table|tbody|caption|tr|td|th|br|p|b|strong|i|u|em|span|ol|ul|li|blockquote|object|param';
+			$allowtags = 'img|a|font|div|table|tbody|caption|tr|td|th|br|p|b|strong|i|u|em|span|ol|ul|li|blockquote';
 			$ms[1] = array_unique($ms[1]);
 			foreach ($ms[1] as $value) {
 				$searchs[] = "&lt;".$value."&gt;";
 
-				$value = str_replace('&', '_uch_tmp_str_', $value);
+				$value = str_replace('&amp;', '_uch_tmp_str_', $value);
 				$value = dhtmlspecialchars($value);
-				$value = str_replace('_uch_tmp_str_', '&', $value);
+				$value = str_replace('_uch_tmp_str_', '&amp;', $value);
 
 				$value = str_replace(array('\\','/*'), array('.','/.'), $value);
 				$skipkeys = array('onabort','onactivate','onafterprint','onafterupdate','onbeforeactivate','onbeforecopy','onbeforecut','onbeforedeactivate',
@@ -331,7 +341,7 @@ function blog_flash($swf_url, $type='') {
 			<param value="autostart=yes&bg=0xCDDFF3&leftbg=0x357DCE&lefticon=0xF2F2F2&rightbg=0xF06A51&rightbghover=0xAF2910&righticon=0xF2F2F2&righticonhover=0xFFFFFF&text=0x357DCE&slider=0x357DCE&track=0xFFFFFF&border=0xFFFFFF&loader=0xAF2910&soundFile='.$swf_url.'" name="FlashVars"/>
 			<param value="high" name="quality"/>
 			<param value="false" name="menu"/>
-			<param name="allowscriptaccess" value="none">
+			<param name="allowscriptaccess" value="never">
 			<param name="allowNetworking" value="internal">
 			<param value="#FFFFFF" name="bgcolor"/>
 	    	</object>';
@@ -340,9 +350,9 @@ function blog_flash($swf_url, $type='') {
 		$extname = substr($swf_url, strrpos($swf_url, '.')+1);
 		$randomid = 'swf_'.random(3);
 		if($extname == 'swf') {
-			$html = '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'none\', \'src\', \''.$swf_url.'\', \'quality\', \'high\', \'bgcolor\', \'#ffffff\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\');</script>';
+			$html = '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', encodeURI(\''.$swf_url.'\'), \'quality\', \'high\', \'bgcolor\', \'#ffffff\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\');</script>';
 		} else {
-			$html = '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'none\', \'src\', \''.STATICURL.'image/common/flvplayer.swf\', \'flashvars\', \'file='.rawurlencode($swf_url).'\', \'quality\', \'high\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\');</script>';
+			$html = '<span id="'.$randomid.'"></span><script type="text/javascript" reload="1">$(\''.$randomid.'\').innerHTML=AC_FL_RunContent(\'width\', \''.$width.'\', \'height\', \''.$height.'\', \'allowNetworking\', \'internal\', \'allowScriptAccess\', \'never\', \'src\', \''.STATICURL.'image/common/flvplayer.swf\', \'flashvars\', \'file='.rawurlencode($swf_url).'\', \'quality\', \'high\', \'wmode\', \'transparent\', \'allowfullscreen\', \'true\');</script>';
 		}
 	}
 	return $html;

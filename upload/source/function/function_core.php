@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: function_core.php 32907 2013-03-21 11:44:37Z zhangjie $
+ *      $Id: function_core.php 34528 2014-05-15 11:42:01Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -12,6 +12,12 @@ if(!defined('IN_DISCUZ')) {
 }
 
 define('DISCUZ_CORE_FUNCTION', true);
+
+function durlencode($url) {
+	static $fix = array('%21', '%2A','%3B', '%3A', '%40', '%26', '%3D', '%2B', '%24', '%2C', '%2F', '%3F', '%25', '%23', '%5B', '%5D');
+	static $replacements = array('!', '*', ';', ":", "@", "&", "=", "+", "$", ",", "/", "?", "%", "#", "[", "]");
+	return str_replace($fix, $replacements, urlencode($url));
+}
 
 function system_error($message, $show = true, $save = true, $halt = true) {
 	discuz_error::system_error($message, $show, $save, $halt);
@@ -190,9 +196,9 @@ function fsocketopen($hostname, $port = 80, &$errno, &$errstr, $timeout = 15) {
 	return $fp;
 }
 
-function dfsockopen($url, $limit = 0, $post = '', $cookie = '', $bysocket = FALSE, $ip = '', $timeout = 15, $block = TRUE, $encodetype  = 'URLENCODE', $allowcurl = TRUE, $position = 0) {
+function dfsockopen($url, $limit = 0, $post = '', $cookie = '', $bysocket = FALSE, $ip = '', $timeout = 15, $block = TRUE, $encodetype  = 'URLENCODE', $allowcurl = TRUE, $position = 0, $files = array()) {
 	require_once libfile('function/filesock');
-	return _dfsockopen($url, $limit, $post, $cookie, $bysocket, $ip, $timeout, $block, $encodetype, $allowcurl, $position);
+	return _dfsockopen($url, $limit, $post, $cookie, $bysocket, $ip, $timeout, $block, $encodetype, $allowcurl, $position, $files);
 }
 
 function dhtmlspecialchars($string, $flags = null) {
@@ -311,18 +317,19 @@ function checkrobot($useragent = '') {
 function checkmobile() {
 	global $_G;
 	$mobile = array();
-	static $mobilebrowser_list =array('iphone', 'android', 'phone', 'mobile', 'wap', 'netfront', 'java', 'opera mobi', 'opera mini',
+	static $touchbrowser_list =array('iphone', 'android', 'phone', 'mobile', 'wap', 'netfront', 'java', 'opera mobi', 'opera mini',
 				'ucweb', 'windows ce', 'symbian', 'series', 'webos', 'sony', 'blackberry', 'dopod', 'nokia', 'samsung',
 				'palmsource', 'xda', 'pieplus', 'meizu', 'midp', 'cldc', 'motorola', 'foma', 'docomo', 'up.browser',
 				'up.link', 'blazer', 'helio', 'hosin', 'huawei', 'novarra', 'coolpad', 'webos', 'techfaith', 'palmsource',
 				'alcatel', 'amoi', 'ktouch', 'nexian', 'ericsson', 'philips', 'sagem', 'wellcom', 'bunjalloo', 'maui', 'smartphone',
 				'iemobile', 'spice', 'bird', 'zte-', 'longcos', 'pantech', 'gionee', 'portalmmm', 'jig browser', 'hiptop',
 				'benq', 'haier', '^lct', '320x320', '240x320', '176x220');
+	static $mobilebrowser_list =array('windows phone');
 	static $wmlbrowser_list = array('cect', 'compal', 'ctl', 'lg', 'nec', 'tcl', 'alcatel', 'ericsson', 'bird', 'daxian', 'dbtel', 'eastcom',
 			'pantech', 'dopod', 'philips', 'haier', 'konka', 'kejian', 'lenovo', 'benq', 'mot', 'soutec', 'nokia', 'sagem', 'sgh',
 			'sed', 'capitel', 'panasonic', 'sonyericsson', 'sharp', 'amoi', 'panda', 'zte');
 
-	$pad_list = array('pad', 'gt-p1000');
+	$pad_list = array('ipad');
 
 	$useragent = strtolower($_SERVER['HTTP_USER_AGENT']);
 
@@ -330,6 +337,10 @@ function checkmobile() {
 		return false;
 	}
 	if(($v = dstrpos($useragent, $mobilebrowser_list, true))){
+		$_G['mobile'] = $v;
+		return '1';
+	}
+	if(($v = dstrpos($useragent, $touchbrowser_list, true))){
 		$_G['mobile'] = $v;
 		return '2';
 	}
@@ -406,7 +417,7 @@ function avatar($uid, $size = 'middle', $returnsrc = FALSE, $real = FALSE, $stat
 	$size = in_array($size, array('big', 'middle', 'small')) ? $size : 'middle';
 	$uid = abs(intval($uid));
 	if(!$staticavatar && !$static) {
-		return $returnsrc ? $ucenterurl.'/avatar.php?uid='.$uid.'&size='.$size : '<img src="'.$ucenterurl.'/avatar.php?uid='.$uid.'&size='.$size.($real ? '&type=real' : '').'" />';
+		return $returnsrc ? $ucenterurl.'/avatar.php?uid='.$uid.'&size='.$size.($real ? '&type=real' : '') : '<img src="'.$ucenterurl.'/avatar.php?uid='.$uid.'&size='.$size.($real ? '&type=real' : '').'" />';
 	} else {
 		$uid = sprintf("%09d", $uid);
 		$dir1 = substr($uid, 0, 3);
@@ -444,7 +455,7 @@ function lang($file, $langvar = null, $vars = array(), $default = null) {
 			loadcache('pluginlanguage_system');
 		}
 		if(!isset($_G['hooklang'][$fileinput])) {
-			if(isset($_G['cache']['pluginlanguage_system'][$fileinput])) {
+			if(isset($_G['cache']['pluginlanguage_system'][$fileinput]) && is_array($_G['cache']['pluginlanguage_system'][$fileinput])) {
 				$_G['lang'][$key] = array_merge($_G['lang'][$key], $_G['cache']['pluginlanguage_system'][$fileinput]);
 			}
 			$_G['hooklang'][$fileinput] = true;
@@ -635,7 +646,7 @@ function template($file, $templateid = 0, $tpldir = '', $gettplfile = 0, $primal
 }
 
 function dsign($str, $length = 16){
-	return substr(md5($str.getglobal('security/authkey')), 0, ($length ? max(8, $length) : 16));
+	return substr(md5($str.getglobal('config/security/authkey')), 0, ($length ? max(8, $length) : 16));
 }
 
 function modauthkey($id) {
@@ -719,6 +730,8 @@ function dgmdate($timestamp, $format = 'dt', $timeoffset = '9999', $uformat = ''
 		$tformat = getglobal('setting/timeformat');
 		$dtformat = $dformat.' '.$tformat;
 		$offset = getglobal('member/timeoffset');
+		$sysoffset = getglobal('setting/timeoffset');
+		$offset = $offset == 9999 ? ($sysoffset ? $sysoffset : 0) : $offset;
 		$lang = lang('core', 'date');
 	}
 	$timeoffset = $timeoffset == 9999 ? $offset : $timeoffset;
@@ -1202,6 +1215,7 @@ function hookscriptoutput($tplfile) {
 
 function pluginmodule($pluginid, $type) {
 	global $_G;
+	$pluginid = $pluginid ? preg_replace("/[^A-Za-z0-9_:]/", '', $pluginid) : '';
 	if(!isset($_G['cache']['plugin'])) {
 		loadcache('plugin');
 	}
@@ -1327,12 +1341,24 @@ function getfocus_rand($module) {
 	return $focusid;
 }
 
-function check_seccode($value, $idhash) {
-	return helper_form::check_seccode($value, $idhash);
+function check_seccode($value, $idhash, $fromjs = 0, $modid = '') {
+	return helper_seccheck::check_seccode($value, $idhash, $fromjs, $modid);
 }
 
 function check_secqaa($value, $idhash) {
-	return helper_form::check_secqaa($value, $idhash);
+	return helper_seccheck::check_secqaa($value, $idhash);
+}
+
+function seccheck($rule, $param = array()) {
+	return helper_seccheck::seccheck($rule, $param);
+}
+
+function make_seccode($seccode = '') {
+	return helper_seccheck::make_seccode($seccode);
+}
+
+function make_secqaa() {
+	return helper_seccheck::make_secqaa();
 }
 
 function adshow($parameter) {
@@ -1473,15 +1499,14 @@ function dmkdir($dir, $mode = 0777, $makeindex = TRUE){
 function dreferer($default = '') {
 	global $_G;
 
-	$default = empty($default) ? $GLOBALS['_t_curapp'] : '';
+	$default = empty($default) && $_ENV['curapp'] ? $_ENV['curapp'].'.php' : '';
 	$_G['referer'] = !empty($_GET['referer']) ? $_GET['referer'] : $_SERVER['HTTP_REFERER'];
 	$_G['referer'] = substr($_G['referer'], -1) == '?' ? substr($_G['referer'], 0, -1) : $_G['referer'];
 
 	if(strpos($_G['referer'], 'member.php?mod=logging')) {
 		$_G['referer'] = $default;
 	}
-	$_G['referer'] = dhtmlspecialchars($_G['referer'], ENT_QUOTES);
-	$_G['referer'] = str_replace('&amp;', '&', $_G['referer']);
+
 	$reurl = parse_url($_G['referer']);
 	if(!empty($reurl['host']) && !in_array($reurl['host'], array($_SERVER['HTTP_HOST'], 'www.'.$_SERVER['HTTP_HOST'])) && !in_array($_SERVER['HTTP_HOST'], array($reurl['host'], 'www.'.$reurl['host']))) {
 		if(!in_array($reurl['host'], $_G['setting']['domain']['app']) && !isset($_G['setting']['domain']['list'][$reurl['host']])) {
@@ -1494,7 +1519,8 @@ function dreferer($default = '') {
 		$_G['referer'] = $_G['siteurl'].'./'.$_G['referer'];
 	}
 
-	return strip_tags($_G['referer']);
+	$_G['referer'] = durlencode($_G['referer']);
+	return$_G['referer'];
 }
 
 function ftpcmd($cmd, $arg1 = '') {
@@ -1580,7 +1606,7 @@ function sizecount($size) {
 	} elseif($size >= 1024) {
 		$size = round($size / 1024 * 100) / 100 . ' KB';
 	} else {
-		$size = $size . ' Bytes';
+		$size = intval($size) . ' Bytes';
 	}
 	return $size;
 }
@@ -2017,6 +2043,7 @@ function strhash($string, $operation = 'DECODE', $key = '') {
 
 	return base64_encode(gzcompress($string.$vkey));
 }
+
 
 function dunserialize($data) {
 	if(($ret = unserialize($data)) === false) {

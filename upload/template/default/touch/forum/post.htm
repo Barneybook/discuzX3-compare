@@ -88,9 +88,10 @@
 		</ul>
 		<ul id="imglist" class="post_imglist cl bl_line">
 		</ul>
-		<!--{if $_GET[action] != 'edit' && checkperm('seccode') && ($secqaacheck || $seccodecheck)}-->
+		<!--{if $_GET[action] != 'edit' && ($secqaacheck || $seccodecheck)}-->
 		<!--{subtemplate common/seccheck}-->
 		<!--{/if}-->
+		<!--{hook/post_bottom_mobile}-->
 	</div>
 </div>
 <!-- main postbox start -->
@@ -200,7 +201,7 @@
 				}
 			};
 
-			if(typeof FileReader != null && typeof FileReader != undefined && this.files) {//note 支持html5上傳新特性
+			if(typeof FileReader != 'undefined' && this.files[0]) {//note 支持html5上傳新特性
 				
 				$.buildfileupload({
 					uploadurl:'misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2',

@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: config_global_default.php 32890 2013-03-20 10:42:31Z zhengqingpeng $
+ *      $Id: config_global_default.php 34020 2013-09-22 05:48:16Z nemohou $
  */
 
 $_config = array();
@@ -95,6 +95,7 @@ $_config['memory']['redis']['server'] = '';
 $_config['memory']['redis']['port'] = 6379;
 $_config['memory']['redis']['pconnect'] = 1;
 $_config['memory']['redis']['timeout'] = 0;
+$_config['memory']['redis']['requirepass'] = '';
 /**
  * 是否使用 Redis::SERIALIZER_IGBINARY選項,需要igbinary支持,windows下測試時請關閉，否則會出>現錯誤Reading from client: Connection reset by peer
  * 支持以下選項，默認使用PHP的serializer
@@ -128,9 +129,6 @@ $_config['download']['xsendfile']['type'] = 0;
 
 // 啟用 nginx X-sendfile 時，論壇附件目錄的虛擬映射路徑，請使用 / 結尾
 $_config['download']['xsendfile']['dir'] = '/down/';
-
-//  CONFIG CACHE
-$_config['cache']['type'] 			= 'sql';	// 緩存類型 file=文件緩存, sql=數據庫緩存
 
 // 頁面輸出設置
 $_config['output']['charset'] 			= 'utf-8';	// 頁面字符集

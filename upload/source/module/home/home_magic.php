@@ -4,7 +4,7 @@
 	[Discuz!] (C)2001-2009 Comsenz Inc111.
 	This is NOT a freeware, use is subject to license terms
 
-	$Id: home_magic.php 31927 2012-10-25 02:54:23Z zhengqingpeng $
+	$Id: home_magic.php 33875 2013-08-26 07:33:49Z andyzheng $
 */
 
 if(!defined('IN_DISCUZ')) {
@@ -115,7 +115,7 @@ if($action == 'shop') {
 		$magicperm = dunserialize($magic['magicperm']);
 		$querystring = array();
 		foreach($_GET as $k => $v) {
-			$querystring[] = $k.'='.rawurlencode($v);
+			$querystring[] = rawurlencode($k).'='.rawurlencode($v);
 		}
 		$querystring = implode('&', $querystring);
 
@@ -411,7 +411,7 @@ if($action == 'shop') {
 				$toname = dhtmlspecialchars(trim($_GET['tousername']));
 				if(!$toname) {
 					showmessage('magics_username_nonexistence');
-				} elseif($magic['num'] < $magicnum) {
+				} elseif($magicnum < 0 || $magic['num'] < $magicnum) {
 					showmessage('magics_num_invalid');
 				}
 

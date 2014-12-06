@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: install_lang.php 32641 2013-02-27 08:39:58Z monkey $
+ *      $Id: install_lang.php 33770 2013-08-12 05:57:10Z nemohou $
  */
 
 if(!defined('IN_COMSENZ')) {
@@ -354,6 +354,7 @@ $lang = array(
 	'database_nonexistence' => '數據庫操作對像不存在',
 	'skip_current' => '跳過本步',
 	'topic' => '專題',
+	'install_finish' => '您的論壇已完成安裝，點此訪問',
 
 );
 
