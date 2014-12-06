@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: index.php 33892 2013-08-28 06:27:12Z hypowang $
+ *      $Id: index.php 34524 2014-05-15 04:42:23Z nemohou $
  */
 
 if(!empty($_SERVER['QUERY_STRING']) && is_numeric($_SERVER['QUERY_STRING'])) {
@@ -40,26 +40,30 @@ if(!empty($_SERVER['QUERY_STRING']) && is_numeric($_SERVER['QUERY_STRING'])) {
 			$list = $_ENV['domain']['list'];
 			if(isset($list[$_SERVER['HTTP_HOST']])) {
 				$domain = $list[$_SERVER['HTTP_HOST']];
-				$id = intval($domain['id']);
 				switch($domain['idtype']) {
 					case 'subarea':
 						$_ENV['curapp'] = 'forum';
-						$_GET['gid'] = $id;
+						$_GET['gid'] = intval($domain['id']);
 						break;
 					case 'forum':
 						$_ENV['curapp'] = 'forum';
 						$_GET['mod'] = 'forumdisplay';
-						$_GET['fid'] = $id;
+						$_GET['fid'] = intval($domain['id']);
 						break;
 					case 'topic':
 						$_ENV['curapp'] = 'portal';
 						$_GET['mod'] = 'topic';
-						$_GET['topicid'] = $id;
+						$_GET['topicid'] = intval($domain['id']);
 						break;
 					case 'channel':
 						$_ENV['curapp'] = 'portal';
 						$_GET['mod'] = 'list';
-						$_GET['catid'] = $id;
+						$_GET['catid'] = intval($domain['id']);
+						break;
+					case 'plugin':
+						$_ENV['curapp'] = 'plugin';
+						$_GET['id'] = $domain['id'];
+						$_GET['fromapp'] = 'index';
 						break;
 				}
 			} elseif(count($_ENV['hostarr']) > 2 && $_ENV['hostarr'][0] != 'www' && !checkholddomain($_ENV['hostarr'][0])) {

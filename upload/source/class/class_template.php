@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: class_template.php 34015 2013-09-22 02:19:41Z nemohou $
+ *      $Id: class_template.php 34486 2014-05-08 01:31:08Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -40,7 +40,7 @@ class template {
 		$var_regexp = "((\\\$[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(\-\>)?[a-zA-Z0-9_\x7f-\xff]*)(\[[a-zA-Z0-9_\-\.\"\'\[\]\$\x7f-\xff]+\])*)";
 		$const_regexp = "([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)";
 
-		$headerexists = preg_match("/{(sub)?template\s+[\w\/]+?header\}/", $template);
+		$headerexists = preg_match("/{(sub)?template\s+[\w:\/]+?header\}/", $template);
 		$this->subtemplates = array();
 		for($i = 1; $i <= 3; $i++) {
 			if(strexists($template, '{subtemplate')) {
@@ -254,7 +254,7 @@ class template {
 
 	function loadcsstemplate() {
 		global $_G;
-		$scriptcss = '<link rel="stylesheet" type="text/css" href="data/cache/style_{STYLEID}_common.css?{VERHASH}" />';
+		$scripts = array(STYLEID.'_common');
 		$content = $this->csscurmodules = '';
 		$content = @implode('', file(DISCUZ_ROOT.'./data/cache/style_'.STYLEID.'_module.css'));
 		$content = preg_replace("/\[(.+?)\](.*?)\[end\]/ies", "\$this->cssvtags('\\1','\\2')", $content);
@@ -266,7 +266,11 @@ class template {
 			} else {
 				exit('Can not write to cache files, please check directory ./data/ and ./data/cache/ .');
 			}
-			$scriptcss .= '<link rel="stylesheet" type="text/css" href="data/cache/style_{STYLEID}_'.$_G['basescript'].'_'.CURMODULE.'.css?{VERHASH}" />';
+			$scripts[] = STYLEID.'_'.$_G['basescript'].'_'.CURMODULE;
+		}
+		$scriptcss = '';
+		foreach($scripts as $css) {
+			$scriptcss .= '<link rel="stylesheet" type="text/css" href="'.$_G['setting']['csspath'].$css.'.css?{VERHASH}" />';
 		}
 		$scriptcss .= '{if $_G[uid] && isset($_G[cookie][extstyle]) && strpos($_G[cookie][extstyle], TPLDIR) !== false}<link rel="stylesheet" id="css_extstyle" type="text/css" href="$_G[cookie][extstyle]/style.css" />{elseif $_G[style][defaultextstyle]}<link rel="stylesheet" id="css_extstyle" type="text/css" href="$_G[style][defaultextstyle]/style.css" />{/if}';
 		return $scriptcss;

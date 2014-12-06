@@ -4,7 +4,7 @@
  *      [Discuz!] (C)2001-2099 Comsenz Inc.
  *      This is NOT a freeware, use is subject to license terms
  *
- *      $Id: class_image.php 34038 2013-09-24 02:21:19Z nemohou $
+ *      $Id: class_image.php 34673 2014-06-26 02:55:52Z nemohou $
  */
 
 if(!defined('IN_DISCUZ')) {
@@ -75,12 +75,12 @@ class image {
 		if($dstwidth < 0 || $dstheight < 0) {
 			return $this->returncode(false);
 		}
-		$this->param['dstwidth'] = $dstwidth;
-		$this->param['dstheight'] = $dstheight;
-		$this->param['srcx'] = $srcx;
-		$this->param['srcy'] = $srcy;
-		$this->param['srcwidth'] = $srcwidth ? $srcwidth : $dstwidth;
-		$this->param['srcheight'] = $srcheight ? $srcheight : $dstheight;
+		$this->param['dstwidth'] = intval($dstwidth);
+		$this->param['dstheight'] = intval($dstheight);
+		$this->param['srcx'] = intval($srcx);
+		$this->param['srcy'] = intval($srcy);
+		$this->param['srcwidth'] = intval($srcwidth ? $srcwidth : $dstwidth);
+		$this->param['srcheight'] = intval($srcheight ? $srcheight : $dstheight);
 
 		$return = !$this->libmethod ? $this->Cropper_GD() : $this->Cropper_IM();
 	}
@@ -532,7 +532,7 @@ class image {
 				' -gravity '.$gravity.
 				' '.$this->param['watermarkfile'][$type].' '.$this->source.' '.$this->target;
 		} else {
-			$watermarktextcvt = str_replace(array("\n", "\r", "'"), array('', '', '\''), pack("H*", $this->param['watermarktext']['text'][$type]));
+			$watermarktextcvt = escapeshellcmd(pack("H*", $this->param['watermarktext']['text'][$type]));
 			$angle = -$this->param['watermarktext']['angle'][$type];
 			$translate = $this->param['watermarktext']['translatex'][$type] || $this->param['watermarktext']['translatey'][$type] ? ' translate '.$this->param['watermarktext']['translatex'][$type].','.$this->param['watermarktext']['translatey'][$type] : '';
 			$skewX = $this->param['watermarktext']['skewx'][$type] ? ' skewX '.$this->param['watermarktext']['skewx'][$type] : '';
